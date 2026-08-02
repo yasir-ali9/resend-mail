@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useState, type FocusEvent } from "react";
 
 import { Button } from "@/components/reusables/button";
@@ -143,14 +144,18 @@ export function LeftPanel({
           className="flex h-full min-w-0 flex-col border-r border-bd-30/90 bg-bk-90"
         >
           <div className="flex h-12 shrink-0 items-center justify-between px-3">
-            <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/"
+              aria-label="Resend Mail home"
+              className="flex min-w-0 items-center gap-1.5"
+            >
               <span className="grid size-7 shrink-0 place-items-center text-fg-50">
-                <Logo className="size-7 -translate-x-0.5" />
+                <Logo className="size-7 -translate-x-0.5 -translate-y-px" />
               </span>
-              <span className="truncate text-[12px] font-medium text-fg-30">
+              <span className="truncate text-[12px] leading-none font-medium text-fg-30">
                 Resend Mail
               </span>
-            </div>
+            </Link>
             {onMobileClose ? (
               <button
                 type="button"
@@ -270,14 +275,18 @@ export function LeftPanel({
             className="flex h-full min-w-0 flex-col"
           >
             <div className="flex h-12 shrink-0 items-center justify-between px-2">
-              <div className="flex min-w-0 items-center gap-2 px-1">
+              <Link
+                href="/"
+                aria-label="Resend Mail home"
+                className="flex min-w-0 items-center gap-1.5 px-1"
+              >
                 <span className="grid size-7 shrink-0 place-items-center text-fg-50">
-                  <Logo className="size-7 -translate-x-0.5" />
+                  <Logo className="size-7 -translate-x-0.5 -translate-y-px" />
                 </span>
-                <span className="truncate text-[12px] font-medium text-fg-30">
+                <span className="truncate text-[12px] leading-none font-medium text-fg-30">
                   Resend Mail
                 </span>
-              </div>
+              </Link>
 
               <Tooltip content="Collapse sidebar" position="bottom">
                 <button

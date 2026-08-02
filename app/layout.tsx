@@ -58,7 +58,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetBrainsMono.variable} ${instrumentSerif.variable} font-sans antialiased`}
+        className={`${inter.className} ${jetBrainsMono.variable} ${instrumentSerif.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider>
