@@ -8,6 +8,8 @@ That gets expensive fast.
 
 I'm not sure this is how [Resend](https://resend.com/) expected it to be used, but I built an end-to-end email client on top of [Resend](https://resend.com/) where you can create unlimited free business mailboxes, send and receive emails, and manage everything in between.
 
+https://github.com/user-attachments/assets/eca7b3c6-c516-4e2b-a64c-1f2c82897404
+
 ## How it works
 
 1. Buy a domain.
