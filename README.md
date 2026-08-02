@@ -63,3 +63,11 @@ https://github.com/user-attachments/assets/eca7b3c6-c516-4e2b-a64c-1f2c82897404
 7. Start sending and receiving emails. You will get a pure Gmail-like experience.
 
 > Note: There may be limitations. I'm still exploring whether this is the right approach and where its limits are, but it works perfectly for me.
+
+## Credits
+
+Thanks to [Resend](https://resend.com/) for making sending and receiving email possible with ease.
+
+## License
+
+Released under the [MIT License](./LICENSE).
