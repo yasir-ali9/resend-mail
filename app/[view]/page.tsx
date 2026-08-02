@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { HomePage } from "@/components/modules/home";
-import { isHomeView } from "@/components/modules/home/types";
+import { MailPage } from "@/components/modules/mail";
+import { isHomeView } from "@/components/modules/mail/types";
 import { listDrafts } from "@/lib/draft/repository";
 import { listMailboxesWithVerification } from "@/lib/mailbox/verification";
 
@@ -22,7 +22,7 @@ export default async function MailViewPage({
   ]);
 
   return (
-    <HomePage
+    <MailPage
       initialActiveView={view}
       initialDrafts={drafts}
       initialMailboxes={mailboxes}

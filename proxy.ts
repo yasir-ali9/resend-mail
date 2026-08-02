@@ -7,6 +7,10 @@ import {
 } from "./lib/auth/session";
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/") {
+    return NextResponse.next();
+  }
+
   const password = process.env.PASSWORD;
 
   if (!password) {
@@ -28,6 +32,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!login|roadmap|api/webhooks/resend|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|api/webhooks/resend|_next/static|_next/image|favicon.ico|icon).*)",
   ],
 };

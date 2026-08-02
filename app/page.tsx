@@ -1,11 +1,11 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-import { isAuthenticated } from "@/lib/server/auth";
+import { HomePage } from "@/components/modules/home";
 
-export default async function Page() {
-  if (!(await isAuthenticated())) {
-    redirect("/login");
-  }
+export const metadata: Metadata = {
+  description: "A focused business inbox powered by Resend.",
+};
 
-  redirect("/inbox");
+export default function Page() {
+  return <HomePage />;
 }

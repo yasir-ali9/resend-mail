@@ -40,7 +40,7 @@ export async function loginAction(
     secure: process.env.NODE_ENV === "production",
   });
 
-  redirect("/");
+  redirect("/inbox");
 }
 
 export async function logoutAction() {

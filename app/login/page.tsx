@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function LoginPage() {
   if (!isAuthenticationEnabled() || (await isAuthenticated())) {
-    redirect("/");
+    redirect("/inbox");
   }
 
   return <Login />;
