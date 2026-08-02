@@ -114,7 +114,7 @@ export function RecipientField({
           <span key={address} className="contents">
             <input type="hidden" name={name} value={address} />
             <span
-              className="flex h-6 max-w-full items-center gap-1 rounded-md bg-bk-80 px-2 text-[11px] text-fg-40"
+              className="flex h-6 max-w-full items-center gap-1 rounded-md bg-bk-60 px-2 text-[11px] text-fg-40"
             >
               <span className="truncate">{address}</span>
               <button

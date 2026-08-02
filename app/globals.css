@@ -206,6 +206,7 @@ body {
   background: rgb(var(--bk-100));
   color: rgb(var(--fg-50));
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-weight: 400;
 }
 
 /* Text selection color */

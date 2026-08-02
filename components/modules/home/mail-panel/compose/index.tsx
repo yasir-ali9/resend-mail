@@ -350,7 +350,7 @@ export function Compose(props: ComposeProps) {
     <div
       role="dialog"
       aria-label="Compose email"
-      className="fixed right-3 bottom-0 z-40 h-[min(560px,calc(100dvh-16px))] w-[min(560px,calc(100vw-24px))] overflow-hidden rounded-t-lg border border-bd-30 bg-bk-90 shadow-xl"
+      className="fixed right-2 bottom-0 z-40 h-[min(560px,calc(100dvh-16px))] w-[min(540px,calc(100vw-16px))] overflow-hidden rounded-t-lg border border-bd-30 bg-bk-90 shadow-xl"
     >
       <Surface {...props} />
     </div>

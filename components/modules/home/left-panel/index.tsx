@@ -169,16 +169,20 @@ export function LeftPanel({
               variant="outline"
               size="sm"
               onClick={() => onViewChange("compose")}
-              className={cn(
-                "h-8 w-full justify-start gap-2 border-bd-30 bg-bk-50 px-2.5 text-[11px] font-medium hover:border-bd-30 hover:bg-bk-70",
-                composeOpen && "border-bd-30 bg-bk-60 text-fg-30",
-              )}
+              aria-pressed={composeOpen}
+              className="h-8 w-full justify-start gap-2 border-bd-30 bg-bk-60 px-2.5 text-[11px] font-medium hover:border-bd-30 hover:!bg-bk-50"
             >
               <Pencil
                 aria-hidden="true"
                 className="size-3.5 text-fg-60"
               />
-              Compose
+              <span>Compose</span>
+              {composeOpen ? (
+                <span
+                  aria-hidden="true"
+                  className="ml-auto mr-0.5 size-1 rounded-full bg-fg-70"
+                />
+              ) : null}
             </Button>
           </div>
 
@@ -231,11 +235,9 @@ export function LeftPanel({
               <button
                 type="button"
                 aria-label="Compose"
+                aria-pressed={composeOpen}
                 onClick={() => onViewChange("compose")}
-                className={cn(
-                  "grid size-7 cursor-pointer place-items-center rounded-md border border-bd-30 bg-bk-50 p-1.5 text-fg-60 transition-colors hover:border-bd-30 hover:bg-bk-70 hover:text-fg-30 focus-visible:ring-1 focus-visible:ring-ac-02",
-                  composeOpen && "bg-bk-60 text-fg-30",
-                )}
+                className="grid size-7 cursor-pointer place-items-center rounded-md border border-bd-30 bg-bk-60 p-1.5 text-fg-60 transition-colors hover:border-bd-30 hover:bg-bk-50 hover:text-fg-30 focus-visible:ring-1 focus-visible:ring-ac-02"
               >
                 <Pencil
                   aria-hidden="true"
@@ -296,16 +298,20 @@ export function LeftPanel({
                 variant="outline"
                 size="sm"
                 onClick={() => onViewChange("compose")}
-                className={cn(
-                  "h-8 w-full justify-start gap-2 border-bd-30 bg-bk-50 px-2.5 text-[11px] font-medium hover:border-bd-30 hover:bg-bk-70",
-                  composeOpen && "border-bd-30 bg-bk-60 text-fg-30",
-                )}
+                aria-pressed={composeOpen}
+                className="h-8 w-full justify-start gap-2 border-bd-30 bg-bk-60 px-2.5 text-[11px] font-medium hover:border-bd-30 hover:!bg-bk-50"
               >
                 <Pencil
                   aria-hidden="true"
                   className="size-3.5 text-fg-60"
                 />
-                Compose
+                <span>Compose</span>
+                {composeOpen ? (
+                  <span
+                    aria-hidden="true"
+                    className="ml-auto mr-0.5 size-1 rounded-full bg-fg-70"
+                  />
+                ) : null}
               </Button>
             </div>
 
@@ -404,11 +410,11 @@ function MailboxNavigation({
             type="button"
             onClick={() => onViewChange(id)}
             className={cn(
-              "relative flex cursor-pointer items-center rounded-md text-left text-[11px] font-medium text-fg-60 transition-colors hover:bg-bk-80 hover:text-fg-30 focus-visible:ring-1 focus-visible:ring-ac-02",
+              "relative flex cursor-pointer items-center rounded-md text-left text-[11px] font-medium text-fg-60 transition-colors focus-visible:ring-1 focus-visible:ring-ac-02",
               collapsed
                 ? "mx-auto size-7 justify-center p-1.5"
                 : "w-full gap-2.5 px-2 py-1.5",
-              active && "bg-bk-60 text-fg-30",
+              active ? "bg-bk-60 text-fg-30" : "hover:bg-bk-70 hover:text-fg-30",
             )}
             aria-current={active ? "page" : undefined}
             aria-label={accessibleLabel}

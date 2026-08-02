@@ -112,8 +112,8 @@ function MailboxMenuTrigger({
       aria-haspopup="menu"
       aria-expanded={open}
       className={cn(
-        "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-bk-70 focus-visible:ring-1 focus-visible:ring-ac-02",
-        open && "bg-bk-60",
+        "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors focus-visible:ring-1 focus-visible:ring-ac-02",
+        open ? "bg-bk-60" : "hover:bg-bk-70",
       )}
     >
       <MailboxAvatar mailbox={selectedMailbox} />
@@ -182,7 +182,12 @@ function MailboxMenuContent({
               role="menuitemradio"
               aria-checked={mailbox.id === selectedMailbox?.id}
               onClick={() => onSelect(mailbox)}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] tracking-tight text-fg-50 hover:bg-bk-60 focus-visible:ring-1 focus-visible:ring-ac-02"
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] tracking-tight text-fg-50 focus-visible:ring-1 focus-visible:ring-ac-02",
+                mailbox.id === selectedMailbox?.id
+                  ? "bg-bk-60"
+                  : "hover:bg-bk-60",
+              )}
             >
               <MailboxAvatar mailbox={mailbox} />
               <span className="min-w-0 flex-1">
