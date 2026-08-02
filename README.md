@@ -1,4 +1,4 @@
-# Resend Mail - Email client for Resend.
+# Resend Mail - Email Client for Resend.
 
 The problem was simple: every new business address usually means another paid mailbox.
 
@@ -9,6 +9,18 @@ That gets expensive fast & become complex to manage.
 I'm not sure this is how @resend expected it to be used, but this is an end-to-end email client on top of @resend where you can create free business mailboxes, send and receive emails, and manage everything in between.
 
 https://github.com/user-attachments/assets/eca7b3c6-c516-4e2b-a64c-1f2c82897404
+
+## Features
+
+- Create multiple business emails (Mailboxes)
+- Conversation threads for related replies
+- Inbox, starred, sent, drafts, spam, trash, and all-mail views
+- Rich-text compose 
+- Replies, forwards, and mailbox signatures
+- Send, receive, preview, forward, and download attachments
+- Search or filter by sender, recipient, subject, date, read status, folder, and attachments
+- Email history and mailbox data stored in a PostgreSQL database you control
+- Responsive layout for smaller screens
 
 ## How it works
 
