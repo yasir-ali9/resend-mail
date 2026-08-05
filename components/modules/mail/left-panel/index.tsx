@@ -20,6 +20,7 @@ import { ResizablePanel } from "@/components/reusables/resizable";
 import { Tooltip } from "@/components/reusables/tooltip";
 import { useToast } from "@/components/reusables/toast";
 import type { MailboxFolderCounts } from "@/lib/email/types";
+import type { Connection, ConnectionDomain } from "@/lib/connection/types";
 import type { Mailbox } from "@/lib/mailbox/types";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ import { ManageMailboxesModal } from "./manage";
 
 interface LeftPanelProps {
   activeView: HomeView;
+  activeConnection: Connection;
+  activeDomain: ConnectionDomain;
   collapsed?: boolean;
   composeOpen?: boolean;
   draftCount: number;
@@ -38,6 +41,7 @@ interface LeftPanelProps {
   mobile?: boolean;
   selectedMailbox?: Mailbox;
   onAddMailboxRequested: () => void;
+  onDisconnectAccount: () => void;
   onMailboxDeleted: (
     deletedMailboxId: string,
     selectedMailbox?: Mailbox,
@@ -61,6 +65,8 @@ const navigation = [
 
 export function LeftPanel({
   activeView,
+  activeConnection,
+  activeDomain,
   collapsed = false,
   composeOpen = false,
   draftCount,
@@ -69,6 +75,7 @@ export function LeftPanel({
   mobile = false,
   selectedMailbox,
   onAddMailboxRequested,
+  onDisconnectAccount,
   onMailboxDeleted,
   onMailboxSelect,
   onMailboxUpdated,
@@ -113,21 +120,20 @@ export function LeftPanel({
     onViewChange,
   };
   const sharedMailboxProps = {
+    activeConnection,
+    activeDomain,
     mailboxes,
     selectedMailbox,
     open: mailboxMenuOpen,
-    onToggle: () => {
-      if (!selectedMailbox) {
-        onAddMailboxRequested();
-        return;
-      }
-
-      setMailboxMenuOpen((open) => !open);
-    },
+    onToggle: () => setMailboxMenuOpen((open) => !open),
     onSelect: (mailbox: Mailbox) => void handleMailboxSelect(mailbox),
     onAdd: () => {
       setMailboxMenuOpen(false);
       onAddMailboxRequested();
+    },
+    onDisconnect: () => {
+      setMailboxMenuOpen(false);
+      onDisconnectAccount();
     },
     onManage: () => {
       setMailboxMenuOpen(false);

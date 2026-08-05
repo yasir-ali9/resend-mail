@@ -42,6 +42,7 @@ import type {
 
 interface StoredEmail {
   id: string;
+  connectionId: string;
   threadId?: string;
   direction: EmailDirection;
   from: string;
@@ -63,6 +64,7 @@ interface StoredEmail {
 type EmailRecord = Pick<
   EmailRow,
   | "id"
+  | "connectionId"
   | "threadId"
   | "direction"
   | "fromAddress"
@@ -88,6 +90,7 @@ type EmailRecord = Pick<
 
 const emailSelection = {
   id: emails.id,
+  connectionId: emails.connectionId,
   threadId: emails.threadId,
   direction: emails.direction,
   fromAddress: emails.fromAddress,
@@ -121,7 +124,12 @@ export async function saveEmail(email: StoredEmail) {
   const [existingEmail] = await db
     .select({ deletedAt: emails.deletedAt })
     .from(emails)
-    .where(eq(emails.id, email.id))
+    .where(
+      and(
+        eq(emails.id, email.id),
+        eq(emails.connectionId, email.connectionId),
+      ),
+    )
     .limit(1);
 
   if (existingEmail?.deletedAt) {
@@ -134,14 +142,15 @@ export async function saveEmail(email: StoredEmail) {
   const referenceIds = parseReferenceIds(readHeader(headers, "references"));
   const threadId =
     email.threadId ??
-    (await findReferencedThreadId([
-      inReplyTo,
-      ...referenceIds.toReversed(),
-    ])) ??
+    (await findReferencedThreadId(
+      [inReplyTo, ...referenceIds.toReversed()],
+      email.connectionId,
+    )) ??
     createFallbackThreadId(email);
-  const inheritedSpamAt = await findThreadSpamAt(threadId);
+  const inheritedSpamAt = await findThreadSpamAt(threadId, email.connectionId);
   const values = {
     id: email.id,
+    connectionId: email.connectionId,
     threadId,
     messageId,
     inReplyTo,
@@ -361,6 +370,7 @@ export async function backfillInboundSenderNames() {
 }
 
 export async function getMailboxFolderCounts(
+  connectionId: string,
   mailboxEmail?: string,
 ): Promise<MailboxFolderCounts> {
   await backfillThreadMetadata();
@@ -395,6 +405,7 @@ export async function getMailboxFolderCounts(
     .from(emails)
     .where(
       and(
+        eq(emails.connectionId, connectionId),
         mailboxFilter,
         isNotNull(emails.threadId),
         isNull(emails.deletedAt),
@@ -437,6 +448,7 @@ export async function getMailboxFolderCounts(
 }
 
 export async function listEmailThreads(
+  connectionId: string,
   folder: EmailFolder,
   search: string,
   cursor?: string,
@@ -483,6 +495,7 @@ export async function listEmailThreads(
     .from(emails)
     .where(
       and(
+        eq(emails.connectionId, connectionId),
         folderFilter,
         mailboxFilter,
         searchFilter,
@@ -515,6 +528,7 @@ export async function listEmailThreads(
     .from(emails)
     .where(
       and(
+        eq(emails.connectionId, connectionId),
         inArray(emails.threadId, threadIds),
         mailboxFilter,
         isNull(emails.deletedAt),
@@ -607,6 +621,7 @@ export async function listEmailThreads(
 }
 
 export async function getEmailThread(
+  connectionId: string,
   threadId: string,
   mailboxEmail?: string,
 ): Promise<MailboxEmail[]> {
@@ -617,6 +632,7 @@ export async function getEmailThread(
     .from(emails)
     .where(
       and(
+        eq(emails.connectionId, connectionId),
         eq(emails.threadId, threadId),
         getMailboxFilter(mailboxEmail),
         isNull(emails.deletedAt),
@@ -663,6 +679,7 @@ export async function getEmailThreadMetadata(id: string) {
     [row] = await db
       .select({
         id: emails.id,
+        connectionId: emails.connectionId,
         threadId: emails.threadId,
         messageId: emails.messageId,
         referenceIds: emails.referenceIds,
@@ -914,6 +931,7 @@ async function backfillThreadMetadata() {
     const rows = await db
       .select({
         id: emails.id,
+        connectionId: emails.connectionId,
         from: emails.fromAddress,
         to: emails.toAddresses,
         cc: emails.ccAddresses,
@@ -946,6 +964,7 @@ async function backfillThreadMetadata() {
         );
         const threadId = createFallbackThreadId({
           id: row.id,
+          connectionId: row.connectionId,
           from: row.from,
           to: arrayOfStrings(row.to),
           cc: arrayOfStrings(row.cc),
@@ -969,6 +988,7 @@ async function backfillThreadMetadata() {
 
 async function findReferencedThreadId(
   values: Array<string | null | undefined>,
+  connectionId: string,
 ) {
   const messageIds = [
     ...new Set(values.filter((value): value is string => Boolean(value))),
@@ -981,19 +1001,25 @@ async function findReferencedThreadId(
   const [row] = await db
     .select({ threadId: emails.threadId })
     .from(emails)
-    .where(inArray(emails.messageId, messageIds))
+    .where(
+      and(
+        eq(emails.connectionId, connectionId),
+        inArray(emails.messageId, messageIds),
+      ),
+    )
     .orderBy(desc(emails.createdAt))
     .limit(1);
 
   return row?.threadId ?? undefined;
 }
 
-async function findThreadSpamAt(threadId: string) {
+async function findThreadSpamAt(threadId: string, connectionId: string) {
   const [row] = await db
     .select({ spamAt: emails.spamAt })
     .from(emails)
     .where(
       and(
+        eq(emails.connectionId, connectionId),
         eq(emails.threadId, threadId),
         isNotNull(emails.spamAt),
       ),
@@ -1007,8 +1033,10 @@ async function findThreadSpamAt(threadId: string) {
 function toMailboxEmail(row: EmailRecord): MailboxEmail {
   return {
     id: row.id,
+    connectionId: row.connectionId,
     threadId: row.threadId ?? createFallbackThreadId({
       id: row.id,
+      connectionId: row.connectionId,
       from: row.fromAddress,
       to: arrayOfStrings(row.toAddresses),
       cc: arrayOfStrings(row.ccAddresses),
@@ -1255,6 +1283,7 @@ function decodeThreadCursor(value: string) {
 
 function createFallbackThreadId(email: {
   id: string;
+  connectionId: string;
   from: string;
   to: string[];
   cc?: string[] | null;
@@ -1269,6 +1298,7 @@ function createFallbackThreadId(email: {
     .filter(Boolean)
     .sort();
   const identity = JSON.stringify({
+    connectionId: email.connectionId,
     subject: normalizeThreadSubject(email.subject),
     participants: [...new Set(participants)],
   });

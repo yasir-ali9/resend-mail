@@ -5,6 +5,10 @@ export type MailboxVerificationStatus =
 
 export interface Mailbox {
   id: string;
+  connectionId: string;
+  connectionLabel: string;
+  domainId: string;
+  domain: string;
   name: string;
   email: string;
   signature: string;
@@ -25,6 +29,7 @@ export interface MailboxSuggestion {
 }
 
 export interface SuggestedMailboxDomain {
+  id: string;
   name: string;
   receiving: boolean;
   sending: boolean;

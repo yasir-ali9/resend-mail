@@ -8,8 +8,10 @@ import type {
   EmailReadFilter,
   EmailSearchFilters,
 } from "@/lib/email/types";
-import { getMailboxByEmail } from "@/lib/mailbox/repository";
+import { getConnection } from "@/lib/connection/repository";
+import { getMailbox } from "@/lib/mailbox/repository";
 import { isAuthenticated } from "@/lib/server/auth";
+import { isMailboxInActiveWorkspace } from "@/lib/server/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +32,13 @@ export async function GET(request: Request) {
       ? requestedFolder
       : "inbox";
   const search = readTextParam(url, "q", 500);
-  const mailboxEmail = readEmailParam(url, "mailbox");
-  const configuredMailbox = mailboxEmail
-    ? await getMailboxByEmail(mailboxEmail)
+  const mailboxId = readIdParam(url, "mailbox");
+  const configuredMailbox = mailboxId
+    ? await getMailbox(mailboxId)
     : undefined;
+  if (configuredMailbox && !(await isMailboxInActiveWorkspace(configuredMailbox))) {
+    return Response.json({ error: "Mailbox is outside the selected domain." }, { status: 403 });
+  }
   const cursor = url.searchParams.get("cursor") || undefined;
   const syncMode = url.searchParams.get("sync");
   const readParam = url.searchParams.get("read");
@@ -57,7 +62,10 @@ export async function GET(request: Request) {
   };
   const syncFolder =
     filters.scope === "everything" ? "everything" : folder;
-  const webhookEnabled = Boolean(process.env.RESEND_WEBHOOK_SECRET);
+  const connection = configuredMailbox
+    ? await getConnection(configuredMailbox.connectionId)
+    : undefined;
+  const webhookEnabled = Boolean(connection?.encryptedWebhookSecret);
 
   if (!configuredMailbox) {
     return Response.json(
@@ -87,13 +95,13 @@ export async function GET(request: Request) {
   if (shouldSync) {
     try {
       if (syncFolder === "inbox") {
-        await syncMailbox("inbound", configuredMailboxEmail);
+        await syncMailbox(configuredMailbox.connectionId, "inbound", configuredMailboxEmail);
       } else if (syncFolder === "sent") {
-        await syncMailbox("outbound", configuredMailboxEmail);
+        await syncMailbox(configuredMailbox.connectionId, "outbound", configuredMailboxEmail);
       } else {
         await Promise.all([
-          syncMailbox("inbound", configuredMailboxEmail),
-          syncMailbox("outbound", configuredMailboxEmail),
+          syncMailbox(configuredMailbox.connectionId, "inbound", configuredMailboxEmail),
+          syncMailbox(configuredMailbox.connectionId, "outbound", configuredMailboxEmail),
         ]);
       }
     } catch (error) {
@@ -105,6 +113,7 @@ export async function GET(request: Request) {
 
   try {
     const page = await listMailboxThreads(
+      configuredMailbox.connectionId,
       folder,
       search,
       cursor,
@@ -112,6 +121,7 @@ export async function GET(request: Request) {
       configuredMailboxEmail,
     );
     const folderCounts = await getMailboxFolderCounts(
+      configuredMailbox.connectionId,
       configuredMailboxEmail,
     );
 
@@ -155,10 +165,9 @@ function readTextParam(url: URL, name: string, maxLength: number) {
   return (url.searchParams.get(name) ?? "").slice(0, maxLength);
 }
 
-function readEmailParam(url: URL, name: string) {
-  const value = readTextParam(url, name, 320).trim().toLowerCase();
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : undefined;
+function readIdParam(url: URL, name: string) {
+  const value = readTextParam(url, name, 100).trim();
+  return /^[a-zA-Z0-9_-]+$/.test(value) ? value : undefined;
 }
 
 function readDateParam(url: URL, name: string) {

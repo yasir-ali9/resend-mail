@@ -1,6 +1,6 @@
 import "server-only";
 
-type ServerVariable = "DATABASE_URL" | "RESEND_API_KEY";
+type ServerVariable = "DATABASE_URL";
 
 export function getServerEnv(name: ServerVariable) {
   const value = process.env[name];

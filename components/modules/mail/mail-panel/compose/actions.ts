@@ -30,7 +30,8 @@ import { deleteDraft } from "@/lib/draft/repository";
 import { getMailbox } from "@/lib/mailbox/repository";
 import { formatMailbox } from "@/lib/mailbox/types";
 import { isAuthenticated } from "@/lib/server/auth";
-import { resend } from "@/lib/server/resend";
+import { getResendClient } from "@/lib/server/resend";
+import { isMailboxInActiveWorkspace } from "@/lib/server/workspace";
 
 const resendIdPattern = /^[a-zA-Z0-9_-]+$/;
 const MAX_EMAIL_HTML_LENGTH = 1_000_000;
@@ -80,9 +81,10 @@ export async function sendEmailAction(
   ];
   const mailbox = await getMailbox(mailboxId);
 
-  if (!mailbox) {
+  if (!mailbox || !(await isMailboxInActiveWorkspace(mailbox))) {
     return { ok: false, error: "Choose a mailbox first." };
   }
+  const resend = await getResendClient(mailbox.connectionId);
 
   if (recipients.to.length === 0) {
     return { ok: false, error: "Add at least one recipient." };
@@ -181,6 +183,7 @@ export async function sendEmailAction(
       const requestedIds = new Set(forwardedAttachmentIds);
       forwardedAttachments = (
         await listResendEmailAttachments(
+          mailbox.connectionId,
           forwardedEmailId,
           forwardedEmailDirection,
         )
@@ -252,6 +255,7 @@ export async function sendEmailAction(
               }
 
               const source = await getResendEmailAttachment(
+                mailbox.connectionId,
                 forwardedEmailId,
                 attachment.id,
                 direction,
@@ -313,6 +317,7 @@ export async function sendEmailAction(
   try {
     await saveEmail({
       id: data.id,
+      connectionId: mailbox.connectionId,
       threadId: replyMetadata?.threadId,
       direction: "outbound",
       from: formatMailbox(mailbox),

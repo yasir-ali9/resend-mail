@@ -15,7 +15,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center font-normal transition-all focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+      "inline-flex items-center justify-center gap-1.5 font-normal transition-all focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
 
     const variants = {
       primary:

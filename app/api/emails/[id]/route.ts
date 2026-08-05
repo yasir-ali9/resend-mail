@@ -29,6 +29,7 @@ export async function GET(
 
     try {
       const attachments = await listResendEmailAttachments(
+        email.connectionId,
         email.id,
         email.direction,
       );

@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 
 import { Logo } from "@/components/reusables/logo";
+import { deleteConnectionAction } from "@/components/modules/connection/actions";
 import { useToast } from "@/components/reusables/toast";
 import type { MailDraft } from "@/lib/draft/types";
+import type { Connection, ConnectionDomain } from "@/lib/connection/types";
 import type { MailboxFolderCounts } from "@/lib/email/types";
 import type { Mailbox } from "@/lib/mailbox/types";
 
@@ -32,6 +34,8 @@ interface MailPageProps {
   initialThreadId?: string;
   initialDrafts: MailDraft[];
   initialMailboxes: Mailbox[];
+  activeConnection: Connection;
+  activeDomain: ConnectionDomain;
 }
 
 export function MailPage({
@@ -39,6 +43,8 @@ export function MailPage({
   initialThreadId,
   initialDrafts,
   initialMailboxes,
+  activeConnection,
+  activeDomain,
 }: MailPageProps) {
   const [activeView, setActiveView] =
     useState<HomeView>(initialActiveView);
@@ -60,10 +66,24 @@ export function MailPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [drafts, setDrafts] = useState<MailDraft[]>(initialDrafts);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>(initialMailboxes);
+  const activeMailboxes = mailboxes.filter(
+    (mailbox) =>
+      mailbox.connectionId === activeConnection.id &&
+      mailbox.domainId === activeDomain.id,
+  );
   const [selectedMailboxId, setSelectedMailboxId] = useState(
     () =>
-      initialMailboxes.find((mailbox) => mailbox.isDefault)?.id ??
-      initialMailboxes[0]?.id,
+      initialMailboxes.find(
+        (mailbox) =>
+          mailbox.connectionId === activeConnection.id &&
+          mailbox.domainId === activeDomain.id &&
+          mailbox.isDefault,
+      )?.id ??
+      initialMailboxes.find(
+        (mailbox) =>
+          mailbox.connectionId === activeConnection.id &&
+          mailbox.domainId === activeDomain.id,
+      )?.id,
   );
   const selectedMailbox = mailboxes.find(
     (mailbox) => mailbox.id === selectedMailboxId,
@@ -97,6 +117,8 @@ export function MailPage({
       return;
     }
 
+    // Mobile layout changes promote an already-open compose surface.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setComposeMode("full");
     const basePath = activeThreadId
       ? getHomeThreadPath(activeView, activeThreadId)
@@ -207,7 +229,10 @@ export function MailPage({
       mailbox,
       ...currentMailboxes.map((currentMailbox) => ({
         ...currentMailbox,
-        isDefault: false,
+        isDefault:
+          currentMailbox.connectionId === mailbox.connectionId
+            ? false
+            : currentMailbox.isDefault,
       })),
     ]);
     setSelectedMailboxId(mailbox.id);
@@ -223,7 +248,10 @@ export function MailPage({
     setMailboxes((currentMailboxes) =>
       currentMailboxes.map((currentMailbox) => ({
         ...currentMailbox,
-        isDefault: currentMailbox.id === mailbox.id,
+        isDefault:
+          currentMailbox.connectionId === mailbox.connectionId
+            ? currentMailbox.id === mailbox.id
+            : currentMailbox.isDefault,
       })),
     );
     setSelectedMailboxId(mailbox.id);
@@ -242,6 +270,22 @@ export function MailPage({
       }
       toast(result.error || "Unable to switch mailbox.", "error");
     }
+  }
+
+  async function handleDisconnectAccount() {
+    if (
+      !window.confirm(
+        `Disconnect ${activeConnection.label}? This permanently removes its locally stored mailboxes and email history.`,
+      )
+    ) {
+      return;
+    }
+    const result = await deleteConnectionAction(activeConnection.id);
+    if (!result.ok) {
+      toast(result.error ?? "Unable to disconnect this account.", "error");
+      return;
+    }
+    window.location.assign("/setup/account");
   }
 
   function handleMailboxUpdated(mailbox: Mailbox) {
@@ -266,7 +310,10 @@ export function MailPage({
         .filter((mailbox) => mailbox.id !== deletedMailboxId)
         .map((mailbox) => ({
           ...mailbox,
-          isDefault: mailbox.id === nextSelectedMailbox?.id,
+          isDefault:
+            mailbox.connectionId === nextSelectedMailbox?.connectionId
+              ? mailbox.id === nextSelectedMailbox.id
+              : mailbox.isDefault,
         })),
     );
 
@@ -342,7 +389,9 @@ export function MailPage({
               onSettingsOpen={() => setSettingsOpen(true)}
             />
             <MailboxMenu
-              mailboxes={mailboxes}
+              activeConnection={activeConnection}
+              activeDomain={activeDomain}
+              mailboxes={activeMailboxes}
               open={mobileMailboxMenuOpen}
               placement="bottom-right"
               selectedMailbox={selectedMailbox}
@@ -360,15 +409,9 @@ export function MailPage({
                 setMobileMailboxMenuOpen(false);
                 setManageMailboxesOpen(true);
               }}
+              onDisconnect={() => void handleDisconnectAccount()}
               onSelect={(mailbox) => void handleMobileMailboxSelect(mailbox)}
-              onToggle={() => {
-                if (!selectedMailbox) {
-                  setMailboxModalOpen(true);
-                  return;
-                }
-
-                setMobileMailboxMenuOpen((open) => !open);
-              }}
+              onToggle={() => setMobileMailboxMenuOpen((open) => !open)}
             />
           </div>
         </header>
@@ -384,9 +427,12 @@ export function MailPage({
               : 0
           }
           folderCounts={folderCounts}
-          mailboxes={mailboxes}
+          activeConnection={activeConnection}
+          activeDomain={activeDomain}
+          mailboxes={activeMailboxes}
           selectedMailbox={selectedMailbox}
           onAddMailboxRequested={() => setMailboxModalOpen(true)}
+          onDisconnectAccount={() => void handleDisconnectAccount()}
           onMailboxDeleted={handleMailboxDeleted}
           onMailboxSelect={handleMailboxSelect}
           onMailboxUpdated={handleMailboxUpdated}
@@ -435,13 +481,16 @@ export function MailPage({
                   : 0
               }
               folderCounts={folderCounts}
-              mailboxes={mailboxes}
+              activeConnection={activeConnection}
+              activeDomain={activeDomain}
+              mailboxes={activeMailboxes}
               mobile
               selectedMailbox={selectedMailbox}
               onAddMailboxRequested={() => {
                 setMobileSidebarOpen(false);
                 setMailboxModalOpen(true);
               }}
+              onDisconnectAccount={() => void handleDisconnectAccount()}
               onMailboxDeleted={handleMailboxDeleted}
               onMailboxSelect={handleMailboxSelect}
               onMailboxUpdated={handleMailboxUpdated}
@@ -458,7 +507,7 @@ export function MailPage({
       {settingsOpen ? (
         <SettingsModal
           open
-          mailboxes={mailboxes}
+          mailboxes={activeMailboxes}
           selectedMailbox={selectedMailbox}
           onAddMailboxRequested={() => setMailboxModalOpen(true)}
           onOpenChange={setSettingsOpen}
@@ -468,13 +517,15 @@ export function MailPage({
 
       <AddMailboxModal
         open={mailboxModalOpen}
+        connection={activeConnection}
+        domain={activeDomain}
         onOpenChange={setMailboxModalOpen}
         onCreated={handleMailboxCreated}
       />
 
       <ManageMailboxesModal
         open={manageMailboxesOpen}
-        mailboxes={mailboxes}
+        mailboxes={activeMailboxes}
         onOpenChange={setManageMailboxesOpen}
         onAddRequested={() => {
           setManageMailboxesOpen(false);

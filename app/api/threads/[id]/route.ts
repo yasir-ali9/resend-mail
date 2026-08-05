@@ -6,7 +6,7 @@ import {
   getEmailThread,
   updateEmailAttachments,
 } from "@/lib/email/repository";
-import { getMailboxByEmail } from "@/lib/mailbox/repository";
+import { getMailbox } from "@/lib/mailbox/repository";
 import { isAuthenticated } from "@/lib/server/auth";
 
 export const runtime = "nodejs";
@@ -22,9 +22,9 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const mailboxEmail = readMailboxEmail(request);
-    const configuredMailbox = mailboxEmail
-      ? await getMailboxByEmail(mailboxEmail)
+    const mailboxId = readMailboxId(request);
+    const configuredMailbox = mailboxId
+      ? await getMailbox(mailboxId)
       : undefined;
 
     if (!configuredMailbox) {
@@ -34,7 +34,11 @@ export async function GET(
       );
     }
 
-    const messages = await getEmailThread(id, configuredMailbox.email);
+    const messages = await getEmailThread(
+      configuredMailbox.connectionId,
+      id,
+      configuredMailbox.email,
+    );
 
     if (messages.length === 0) {
       return Response.json(
@@ -47,6 +51,7 @@ export async function GET(
       messages.map(async (message) => {
         try {
           const attachments = await listResendEmailAttachments(
+            configuredMailbox.connectionId,
             message.id,
             message.direction,
           );
@@ -94,13 +99,12 @@ export async function GET(
   }
 }
 
-function readMailboxEmail(request: Request) {
+function readMailboxId(request: Request) {
   const value = new URL(request.url).searchParams
     .get("mailbox")
-    ?.trim()
-    .toLowerCase();
+    ?.trim();
 
-  return value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  return value && /^[a-zA-Z0-9_-]+$/.test(value)
     ? value
     : undefined;
 }

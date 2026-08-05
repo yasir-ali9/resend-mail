@@ -103,7 +103,7 @@ export function MailPanel({
     activeView,
     currentFolder,
     filters: searchFilters,
-    mailboxEmail: selectedMailbox?.email,
+    mailboxEmail: selectedMailbox?.id,
     requestedThreadId: activeThreadId,
     search,
     onFolderCountsChange,

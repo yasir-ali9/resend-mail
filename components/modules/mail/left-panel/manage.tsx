@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Check,
-  CirclePlus,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { CirclePlus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/reusables/button";
@@ -21,7 +16,6 @@ import {
 } from "@/components/reusables/modal";
 import { useToast } from "@/components/reusables/toast";
 import type { Mailbox } from "@/lib/mailbox/types";
-import { cn } from "@/lib/utils";
 
 import {
   deleteMailboxAction,
@@ -183,28 +177,21 @@ export function ManageMailboxesModal({
               return (
                 <div
                   key={mailbox.id}
-                  className="rounded-lg border border-bd-30 bg-bk-80 p-2.5"
+                  className="rounded-lg border border-bd-30 bg-bk-80 p-1.5"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-bk-70 text-[10px] font-medium text-fg-50">
-                      {mailbox.name.charAt(0).toUpperCase()}
-                    </span>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <p className="truncate text-[11px] font-medium text-fg-40">
-                          {mailbox.name}
-                        </p>
-                        {mailbox.isDefault ? (
-                          <span className="rounded border border-bd-40 px-1 py-0.5 text-[8px] uppercase tracking-wide text-fg-70">
-                            Default
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 truncate text-[10px] text-fg-70">
-                        {mailbox.email}
+                  <div className="flex items-center gap-2 px-1 py-0.5">
+                    <div className="flex min-w-0 flex-1 items-baseline gap-1">
+                      <p className="shrink-0 truncate text-[11px] text-fg-50">
+                        {mailbox.name}
                       </p>
-                      <VerificationStatus mailbox={mailbox} />
+                      {mailbox.isDefault ? (
+                        <span className="rounded border border-bd-40 px-1 py-0.5 text-[8px] uppercase tracking-wide text-fg-70">
+                          Default
+                        </span>
+                      ) : null}
+                      <p className="truncate text-[10px] text-fg-70">
+                        &lt;{mailbox.email}&gt;
+                      </p>
                     </div>
 
                     <button
@@ -378,50 +365,11 @@ function EditMailboxBody({
         />
       </label>
 
-      <div className="rounded-lg border border-bd-30 bg-bk-80 px-2.5 py-2">
-        <p className="text-[10px] text-fg-70">Looks like</p>
-        <p className="mt-1 truncate text-[11px] text-fg-50">
-          {name.trim() || "Support"} &lt;
-          {email.trim() || "support@example.com"}&gt;
-        </p>
-      </div>
-
       {error ? (
         <p role="alert" className="text-[11px] text-fg-60">
           {error}
         </p>
       ) : null}
     </ModalBody>
-  );
-}
-
-function VerificationStatus({ mailbox }: { mailbox: Mailbox }) {
-  const verified = mailbox.verificationStatus === "verified";
-  const label =
-    mailbox.verificationStatus === "unknown"
-      ? "Verification unavailable"
-      : verified
-        ? "Verified in Resend"
-        : "Domain not verified";
-
-  return (
-    <p
-      className={cn(
-        "mt-1.5 flex items-center gap-1 text-[9px] text-fg-70",
-        verified && "text-ac-01",
-      )}
-    >
-      <span
-        className={cn(
-          "grid size-3 place-items-center rounded-full border border-bd-30",
-          verified && "border-ac-01 bg-ac-01 text-white",
-        )}
-      >
-        {verified ? (
-          <Check aria-hidden="true" className="size-2" />
-        ) : null}
-      </span>
-      {label}
-    </p>
   );
 }

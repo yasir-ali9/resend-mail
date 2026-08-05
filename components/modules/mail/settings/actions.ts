@@ -1,8 +1,9 @@
 "use server";
 
-import { updateMailboxSignature } from "@/lib/mailbox/repository";
+import { getMailbox, updateMailboxSignature } from "@/lib/mailbox/repository";
 import type { SignatureActionResult } from "@/lib/mailbox/types";
 import { isAuthenticated } from "@/lib/server/auth";
+import { isMailboxInActiveWorkspace } from "@/lib/server/workspace";
 
 const MAX_SIGNATURE_LENGTH = 5_000;
 
@@ -26,6 +27,11 @@ export async function updateMailboxSignatureAction(input: {
       ok: false,
       error: `Signatures can be up to ${MAX_SIGNATURE_LENGTH.toLocaleString()} characters.`,
     };
+  }
+
+  const currentMailbox = await getMailbox(mailboxId);
+  if (!currentMailbox || !(await isMailboxInActiveWorkspace(currentMailbox))) {
+    return { ok: false, error: "This mailbox is outside the selected domain." };
   }
 
   try {

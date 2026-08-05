@@ -89,6 +89,7 @@ export interface EmailMessageDetails {
 
 export interface MailboxEmail {
   id: string;
+  connectionId: string;
   threadId: string;
   direction: EmailDirection;
   from: string;

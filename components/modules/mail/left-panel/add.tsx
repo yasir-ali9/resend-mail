@@ -14,6 +14,7 @@ import {
   ModalTitle,
 } from "@/components/reusables/modal";
 import { useToast } from "@/components/reusables/toast";
+import type { Connection, ConnectionDomain } from "@/lib/connection/types";
 import type {
   Mailbox,
   MailboxSuggestion,
@@ -26,15 +27,19 @@ interface AddMailboxModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (mailbox: Mailbox) => void;
+  connection: Connection;
+  domain: ConnectionDomain;
 }
 
 export function AddMailboxModal({
   open,
   onOpenChange,
   onCreated,
+  connection,
+  domain,
 }: AddMailboxModalProps) {
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [localPart, setLocalPart] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<MailboxSuggestionsResult>();
@@ -47,9 +52,9 @@ export function AddMailboxModal({
     }
 
     const controller = new AbortController();
-    setSuggestionsLoading(true);
+    queueMicrotask(() => setSuggestionsLoading(true));
 
-    void fetch("/api/mailboxes/suggestions", {
+    void fetch(`/api/mailboxes/suggestions?connection=${connection.id}`, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -63,7 +68,13 @@ export function AddMailboxModal({
           throw new Error(message || "Unable to load suggestions.");
         }
 
-        setSuggestions(result);
+        setSuggestions({
+          ...result,
+          domains: result.domains.filter((candidate) => candidate.id === domain.id),
+          suggestions: result.suggestions.filter((suggestion) =>
+            suggestion.email.toLowerCase().endsWith(`@${domain.name}`),
+          ),
+        });
       })
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === "AbortError") {
@@ -83,7 +94,7 @@ export function AddMailboxModal({
       });
 
     return () => controller.abort();
-  }, [open]);
+  }, [open, connection.id, domain.id, domain.name]);
 
   function handleClose(force = false) {
     if (creating && !force) {
@@ -91,7 +102,7 @@ export function AddMailboxModal({
     }
 
     setName("");
-    setEmail("");
+    setLocalPart("");
     setError("");
     setSuggestions(undefined);
     onOpenChange(false);
@@ -102,7 +113,8 @@ export function AddMailboxModal({
     setError("");
 
     try {
-      const result = await createMailboxAction({ name, email });
+      const email = `${localPart.trim()}@${domain.name}`;
+      const result = await createMailboxAction({ name, email, domainId: domain.id });
 
       if (!result.ok || !result.mailbox) {
         const message = result.error || "Unable to add this mailbox.";
@@ -139,13 +151,13 @@ export function AddMailboxModal({
           </ModalDescription>
         </ModalHeader>
 
-        <ModalBody className="min-h-0 space-y-3 overflow-y-auto">
+        <ModalBody className="space-y-3">
           <MailboxSuggestions
             loading={suggestionsLoading}
             result={suggestions}
             onSelect={(suggestion) => {
               setName(suggestion.name);
-              setEmail(suggestion.email);
+              setLocalPart(suggestion.email.split("@")[0] ?? "");
               setError("");
             }}
           />
@@ -163,23 +175,20 @@ export function AddMailboxModal({
 
           <label className="block">
             <span className="mb-1.5 block text-[11px] text-fg-60">Email</span>
-            <StringInput
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="support@example.com"
-              maxLength={254}
-              disabled={creating}
-            />
+            <div className="flex h-[26px] items-center rounded border border-bd-40 bg-bk-80 focus-within:border-ac-02 focus-within:ring-1 focus-within:ring-inset focus-within:ring-ac-02">
+              <input
+                value={localPart}
+                onChange={(event) => setLocalPart(event.target.value.replaceAll("@", ""))}
+                placeholder="support"
+                maxLength={64}
+                disabled={creating}
+                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[11px] text-fg-50 outline-none placeholder:text-fg-70"
+              />
+              <span className="shrink-0 border-l border-bd-40 px-2 text-[10px] leading-[24px] text-fg-70">
+                @{domain.name}
+              </span>
+            </div>
           </label>
-
-          <div className="rounded-lg border border-bd-30 bg-bk-80 px-2.5 py-2">
-            <p className="text-[10px] text-fg-70">Looks like</p>
-            <p className="mt-1 truncate text-[11px] text-fg-50">
-              {name.trim() || "Support"} &lt;
-              {email.trim() || "support@example.com"}&gt;
-            </p>
-          </div>
 
           {error ? (
             <p role="alert" className="text-[11px] text-fg-60">
@@ -207,7 +216,7 @@ export function AddMailboxModal({
             variant="primary"
             size="sm"
             onClick={() => void handleCreate()}
-            disabled={creating}
+            disabled={creating || !localPart.trim() || !name.trim()}
             className="w-full sm:w-auto"
           >
             {creating ? "Adding..." : "Add mailbox"}
@@ -229,8 +238,11 @@ function MailboxSuggestions({
 }) {
   if (loading) {
     return (
-      <div className="rounded-lg border border-bd-30 bg-bk-80 px-3 py-2.5 text-[10px] text-fg-70">
-        Checking recent Resend activity…
+      <div>
+        <span className="mb-1.5 block text-[11px] text-fg-60">Found in Resend</span>
+        <div className="rounded-lg border border-bd-30 bg-bk-80 px-3 py-2.5 text-[10px] text-fg-70">
+          Checking recent Resend activity…
+        </div>
       </div>
     );
   }
@@ -240,15 +252,9 @@ function MailboxSuggestions({
   }
 
   return (
-    <section className="rounded-lg border border-bd-30 bg-bk-80 p-1.5">
-      <div className="px-1.5 pt-1 pb-1.5">
-        <p className="text-[10px] font-medium text-fg-50">
-          Found in Resend
-        </p>
-        <p className="mt-0.5 text-[9px] leading-4 text-fg-70">
-          Choose an address seen in recent activity, or enter one manually.
-        </p>
-      </div>
+    <div>
+      <span className="mb-1.5 block text-[11px] text-fg-60">Found in Resend</span>
+      <section className="max-h-40 overflow-y-auto rounded-lg border border-bd-30 bg-bk-80 p-1.5">
 
       {result.suggestions.length ? (
         <div className="space-y-0.5">
@@ -260,7 +266,7 @@ function MailboxSuggestions({
               className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-bk-70 focus-visible:ring-1 focus-visible:ring-ac-02"
             >
               <span className="flex min-w-0 flex-1 items-baseline gap-1 truncate text-[11px]">
-                <span className="shrink-0 text-fg-40">
+                <span className="shrink-0 text-fg-50">
                   {suggestion.name}
                 </span>
                 <span className="truncate text-[10px] text-fg-70">
@@ -283,18 +289,12 @@ function MailboxSuggestions({
         </p>
       )}
 
-      {result.domains.length ? (
-        <p className="mt-1 border-t border-bd-30 px-1.5 pt-2 pb-1 text-[9px] leading-4 text-fg-70">
-          Verified {result.domains.length === 1 ? "domain" : "domains"}: {" "}
-          {result.domains.map((domain) => domain.name).join(", ")}
-        </p>
-      ) : null}
-
       {result.warning ? (
         <p className="px-1.5 pt-1 pb-1 text-[9px] leading-4 text-fg-70">
           {result.warning}
         </p>
       ) : null}
-    </section>
+      </section>
+    </div>
   );
 }

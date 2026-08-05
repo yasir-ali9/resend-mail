@@ -8,22 +8,24 @@ import {
   saveEmail,
 } from "@/lib/email/repository";
 import { extractEmailAddress } from "@/lib/email/address";
-import { resend } from "@/lib/server/resend";
+import { getResendClient } from "@/lib/server/resend";
 import type { EmailDirection } from "@/lib/email/types";
 
 export async function syncMailbox(
+  connectionId: string,
   direction: EmailDirection,
   mailboxEmail: string,
 ) {
   if (direction === "inbound") {
-    await syncReceivedEmails(mailboxEmail);
+    await syncReceivedEmails(connectionId, mailboxEmail);
     return;
   }
 
-  await syncSentEmails(mailboxEmail);
+  await syncSentEmails(connectionId, mailboxEmail);
 }
 
-export async function syncReceivedEmail(id: string) {
+export async function syncReceivedEmail(connectionId: string, id: string) {
+  const resend = await getResendClient(connectionId);
   const { data, error } = await resend.emails.receiving.get(id);
 
   if (error || !data) {
@@ -32,6 +34,7 @@ export async function syncReceivedEmail(id: string) {
 
   await saveEmail({
     id: data.id,
+    connectionId,
     direction: "inbound",
     from: getDisplayFromAddress(data.from, data.headers),
     to: data.to,
@@ -79,7 +82,8 @@ function readHeader(
   return key ? headers[key] : undefined;
 }
 
-async function syncReceivedEmails(mailboxEmail: string) {
+async function syncReceivedEmails(connectionId: string, mailboxEmail: string) {
+  const resend = await getResendClient(connectionId);
   const { data, error } = await resend.emails.receiving.list({ limit: 100 });
 
   if (error || !data) {
@@ -96,10 +100,11 @@ async function syncReceivedEmails(mailboxEmail: string) {
     .filter((email) => !existingIds.has(email.id))
     .map((email) => email.id);
 
-  await runInBatches(missingIds, syncReceivedEmail);
+  await runInBatches(missingIds, (id) => syncReceivedEmail(connectionId, id));
 }
 
-async function syncSentEmails(mailboxEmail: string) {
+async function syncSentEmails(connectionId: string, mailboxEmail: string) {
+  const resend = await getResendClient(connectionId);
   const { data, error } = await resend.emails.list({ limit: 100 });
 
   if (error || !data) {
@@ -140,7 +145,7 @@ async function syncSentEmails(mailboxEmail: string) {
     ),
   );
 
-  await runInBatches(missingIds, syncSentEmail);
+  await runInBatches(missingIds, (id) => syncSentEmail(connectionId, id));
 }
 
 function receivedByMailbox(
@@ -167,7 +172,8 @@ function addressMatches(address: string, mailboxEmail: string) {
   );
 }
 
-export async function syncSentEmail(id: string) {
+export async function syncSentEmail(connectionId: string, id: string) {
+  const resend = await getResendClient(connectionId);
   const result = await resend.emails.get(id);
 
   if (result.error || !result.data) {
@@ -178,6 +184,7 @@ export async function syncSentEmail(id: string) {
 
   await saveEmail({
     id: email.id,
+    connectionId,
     direction: "outbound",
     from: email.from,
     to: email.to,

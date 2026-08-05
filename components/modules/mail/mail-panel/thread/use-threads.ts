@@ -151,15 +151,17 @@ export function useThreads({
     selectedThreads.every((thread) => thread.archived);
 
   useEffect(() => {
+    // Route-driven selection is intentionally synchronized after navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedThreadId(requestedThreadId);
   }, [requestedThreadId]);
 
-  function updateFolderCountsForThreads(
+  const updateFolderCountsForThreads = useCallback((
     changes: Array<{
       before?: MailboxThread;
       after?: MailboxThread;
     }>,
-  ) {
+  ) => {
     const deltas: MailboxFolderCounts = {
       inbox: 0,
       spam: 0,
@@ -188,7 +190,7 @@ export function useThreads({
       spam: Math.max(0, currentCounts.spam + deltas.spam),
       starred: Math.max(0, currentCounts.starred + deltas.starred),
     }));
-  }
+  }, [onFolderCountsChange]);
 
   const loadEmails = useCallback(
     async (
@@ -393,7 +395,7 @@ export function useThreads({
         scheduledSearchController.current = undefined;
       }
     };
-  }, [activeView, currentFolder, loadEmails, requestedThreadId, search]);
+  }, [activeView, currentFolder, loadEmails, mailboxEmail, requestedThreadId, search]);
 
   function searchImmediately() {
     if (activeView === "drafts") {
@@ -449,7 +451,7 @@ export function useThreads({
     };
   }, [activeView, currentFolder, loadEmails, search, webhookEnabled]);
 
-  async function openThread(thread: MailboxThread) {
+  const openThread = useCallback(async (thread: MailboxThread) => {
     setSelectedThreadId(thread.id);
 
     if (thread.unreadCount > 0) {
@@ -514,7 +516,7 @@ export function useThreads({
         currentId === thread.id ? undefined : currentId,
       );
     }
-  }
+  }, [mailboxEmail, threadDetails, updateFolderCountsForThreads]);
 
   useEffect(() => {
     if (!requestedThreadId || threadDetails[requestedThreadId]) {
@@ -526,9 +528,12 @@ export function useThreads({
       return;
     }
 
+    // Opening the route-selected thread hydrates its detail state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void openThread(thread);
   }, [
     loadingThreadDetailId,
+    openThread,
     requestedThreadId,
     threadDetails,
     threads,

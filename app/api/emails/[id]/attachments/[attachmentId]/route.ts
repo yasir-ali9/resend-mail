@@ -1,5 +1,5 @@
 import { getResendEmailAttachment } from "@/lib/email/attachments";
-import { getEmailDirection } from "@/lib/email/repository";
+import { getEmail } from "@/lib/email/repository";
 import { isAuthenticated } from "@/lib/server/auth";
 
 export const runtime = "nodejs";
@@ -42,17 +42,18 @@ export async function GET(
     return Response.json({ error: "Invalid attachment." }, { status: 400 });
   }
 
-  const direction = await getEmailDirection(id);
+  const email = await getEmail(id);
 
-  if (!direction) {
+  if (!email) {
     return Response.json({ error: "Email not found." }, { status: 404 });
   }
 
   try {
     const attachment = await getResendEmailAttachment(
+      email.connectionId,
       id,
       attachmentId,
-      direction,
+      email.direction,
     );
     const range = request.headers.get("range");
     const download = await fetch(attachment.download_url, {

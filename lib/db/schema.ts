@@ -16,15 +16,76 @@ import type {
   EmailDirection,
 } from "@/lib/email/types";
 
+export type ConnectionAuthType = "api_key" | "oauth";
+export type ConnectionStatus = "active" | "error" | "revoked";
+
 const timestampOptions = {
   mode: "date",
   withTimezone: true,
 } as const;
 
+export const connections = pgTable(
+  "connections",
+  {
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    authType: text("auth_type").$type<ConnectionAuthType>().notNull(),
+    encryptedApiKey: text("encrypted_api_key"),
+    encryptedAccessToken: text("encrypted_access_token"),
+    encryptedRefreshToken: text("encrypted_refresh_token"),
+    tokenExpiresAt: timestamp("token_expires_at", timestampOptions),
+    credentialFingerprint: text("credential_fingerprint").notNull(),
+    accountMarkers: jsonb("account_markers")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    status: text("status").$type<ConnectionStatus>().notNull().default("active"),
+    webhookEndpointToken: text("webhook_endpoint_token").notNull(),
+    encryptedWebhookSecret: text("encrypted_webhook_secret"),
+    lastVerifiedAt: timestamp("last_verified_at", timestampOptions),
+    createdAt: timestamp("created_at", timestampOptions).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", timestampOptions).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("connections_credential_fingerprint_idx").on(
+      table.credentialFingerprint,
+    ),
+    uniqueIndex("connections_webhook_endpoint_token_idx").on(
+      table.webhookEndpointToken,
+    ),
+  ],
+);
+
+export const domains = pgTable(
+  "domains",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status").notNull(),
+    sendingEnabled: boolean("sending_enabled").notNull().default(false),
+    receivingEnabled: boolean("receiving_enabled").notNull().default(false),
+    createdAt: timestamp("created_at", timestampOptions).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", timestampOptions).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("domains_connection_name_idx").on(
+      table.connectionId,
+      sql`lower(${table.name})`,
+    ),
+    index("domains_connection_idx").on(table.connectionId),
+  ],
+);
+
 export const emails = pgTable(
   "emails",
   {
     id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
     direction: text("direction").$type<EmailDirection>().notNull(),
     fromAddress: text("from_address").notNull(),
     toAddresses: jsonb("to_addresses").$type<string[]>().notNull().default([]),
@@ -71,10 +132,12 @@ export const emails = pgTable(
       sql`${table.deliveryStatus} is null or ${table.deliveryStatus} in ('queued', 'sent', 'delivered', 'delayed', 'bounced', 'failed', 'complained', 'suppressed')`,
     ),
     index("emails_direction_created_at_idx").on(
+      table.connectionId,
       table.direction,
       table.createdAt.desc(),
     ),
-    index("emails_thread_created_at_idx").on(
+    index("emails_connection_thread_created_at_idx").on(
+      table.connectionId,
       table.threadId,
       table.createdAt,
     ),
@@ -91,6 +154,12 @@ export const mailboxes = pgTable(
   "mailboxes",
   {
     id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    domainId: text("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     email: text("email").notNull(),
     signature: text("signature"),
@@ -99,10 +168,14 @@ export const mailboxes = pgTable(
     updatedAt: timestamp("updated_at", timestampOptions).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("mailboxes_email_idx").on(sql`lower(${table.email})`),
-    uniqueIndex("mailboxes_one_default_idx")
-      .on(table.isDefault)
+    uniqueIndex("mailboxes_connection_email_idx").on(
+      table.connectionId,
+      sql`lower(${table.email})`,
+    ),
+    uniqueIndex("mailboxes_one_default_per_domain_idx")
+      .on(table.domainId, table.isDefault)
       .where(sql`${table.isDefault} = true`),
+    index("mailboxes_domain_idx").on(table.domainId),
   ],
 );
 
@@ -143,5 +216,9 @@ export type EmailRow = typeof emails.$inferSelect;
 export type NewEmailRow = typeof emails.$inferInsert;
 export type MailboxRow = typeof mailboxes.$inferSelect;
 export type NewMailboxRow = typeof mailboxes.$inferInsert;
+export type ConnectionRow = typeof connections.$inferSelect;
+export type NewConnectionRow = typeof connections.$inferInsert;
+export type DomainRow = typeof domains.$inferSelect;
+export type NewDomainRow = typeof domains.$inferInsert;
 export type DraftRow = typeof drafts.$inferSelect;
 export type NewDraftRow = typeof drafts.$inferInsert;

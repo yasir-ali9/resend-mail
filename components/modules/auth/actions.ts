@@ -16,9 +16,10 @@ export async function loginAction(
   formData: FormData,
 ): Promise<{ error: string }> {
   const configuredPassword = process.env.PASSWORD;
+  const sessionSecret = process.env.SESSION_SECRET;
   const suppliedPassword = formData.get("password");
 
-  if (!configuredPassword) {
+  if (!configuredPassword || !sessionSecret) {
     return { error: "Authentication is not configured on this server." };
   }
 
@@ -29,7 +30,7 @@ export async function loginAction(
     return { error: "The password is incorrect." };
   }
 
-  const token = await createSessionToken(configuredPassword);
+  const token = await createSessionToken(sessionSecret);
   const cookieStore = await cookies();
 
   cookieStore.set(SESSION_COOKIE_NAME, token, {
@@ -40,13 +41,13 @@ export async function loginAction(
     secure: process.env.NODE_ENV === "production",
   });
 
-  redirect("/inbox");
+  redirect("/setup/account");
 }
 
 export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
-  redirect("/login");
+  redirect("/setup/access");
 }
 
 function passwordsMatch(supplied: string, configured: string) {

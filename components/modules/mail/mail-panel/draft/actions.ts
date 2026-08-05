@@ -20,6 +20,7 @@ import type {
 } from "@/lib/draft/types";
 import { getMailbox } from "@/lib/mailbox/repository";
 import { isAuthenticated } from "@/lib/server/auth";
+import { isMailboxInActiveWorkspace } from "@/lib/server/workspace";
 
 const draftIdPattern =
   /^draft_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -53,7 +54,7 @@ export async function saveDraftAction(
 
   const mailbox = await getMailbox(input.mailboxId);
 
-  if (!mailbox) {
+  if (!mailbox || !(await isMailboxInActiveWorkspace(mailbox))) {
     return { ok: false, error: "Choose a mailbox before saving." };
   }
 

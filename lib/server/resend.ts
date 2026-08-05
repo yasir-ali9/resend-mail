@@ -2,17 +2,37 @@ import "server-only";
 
 import { Resend } from "resend";
 
-import { getServerEnv } from "@/lib/server/env";
+import {
+  getConnection,
+  setConnectionStatus,
+} from "@/lib/connection/repository";
+import {
+  CredentialDecryptionError,
+  decryptCredential,
+} from "@/lib/server/credentials";
 
-type GlobalWithResend = typeof globalThis & {
-  inboundResend?: Resend;
-};
+export async function getResendClient(connectionId: string) {
+  const connection = await getConnection(connectionId);
 
-const globalWithResend = globalThis as GlobalWithResend;
+  if (!connection || connection.status !== "active") {
+    throw new Error("This Resend connection is unavailable.");
+  }
 
-export const resend =
-  globalWithResend.inboundResend ?? new Resend(getServerEnv("RESEND_API_KEY"));
+  const encryptedCredential =
+    connection.authType === "api_key"
+      ? connection.encryptedApiKey
+      : connection.encryptedAccessToken;
 
-if (process.env.NODE_ENV !== "production") {
-  globalWithResend.inboundResend = resend;
+  if (!encryptedCredential) {
+    throw new Error("This Resend connection has no usable credential.");
+  }
+
+  try {
+    return new Resend(decryptCredential(encryptedCredential));
+  } catch (error) {
+    if (error instanceof CredentialDecryptionError) {
+      await setConnectionStatus(connectionId, "error");
+    }
+    throw error;
+  }
 }

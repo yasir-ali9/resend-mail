@@ -41,7 +41,6 @@ import {
 } from "./utils";
 import type {
   ComposeActions,
-  ComposeMode,
   ComposeStatus,
   ComposeValue,
   DraftSaveStatus,
@@ -64,7 +63,6 @@ interface UseComposeOptions {
 export function useCompose({
   activeView,
   composeMode,
-  currentFolder,
   selectedMailbox,
   onDraftDeleted,
   onDraftUpsert,

@@ -5,8 +5,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/reusables/button";
 import { Input } from "@/components/reusables/input";
-import { Logo } from "@/components/reusables/logo";
-import { useTheme } from "@/lib/theme/theme";
+import { SetupShell } from "@/components/modules/setup/shell";
 
 import { loginAction } from "../actions";
 
@@ -17,35 +16,13 @@ export function Login() {
     loginAction,
     initialState,
   );
-  const { toggleTheme } = useTheme();
-
   return (
-    <main className="grid min-h-dvh place-items-center bg-bk-100 p-5 text-fg-50">
-      <section className="w-full max-w-[22rem] overflow-hidden rounded-2xl border border-bd-40 bg-bk-90">
-        <header className="px-5 pt-5 pb-12">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle color theme"
-              title="Toggle color theme"
-              className="grid size-8 cursor-pointer place-items-center text-fg-50 transition-colors hover:text-fg-30 focus:outline-none focus-visible:text-fg-30"
-            >
-              <Logo className="size-8 -translate-x-0.5" />
-            </button>
-            <span className="text-[13px] font-medium text-fg-30">
-              Resend Mail
-            </span>
-          </div>
-          <h1 className="mt-5 text-[16px] font-medium text-fg-30">
-            Unlock your inbox
-          </h1>
-          <p className="mt-1 text-[11px] leading-5 text-fg-70">
-            Enter the owner password configured for this deployment.
-          </p>
-        </header>
-
-        <form action={formAction} className="space-y-2.5 p-5">
+    <SetupShell
+      step={1}
+      title="Unlock your inbox"
+      description="Enter the app password configured for this installation."
+    >
+        <form action={formAction} className="space-y-2.5">
           {state.error ? (
             <p
               id="password-error"
@@ -96,7 +73,6 @@ export function Login() {
             </span>
           </label>
         </form>
-      </section>
-    </main>
+    </SetupShell>
   );
 }

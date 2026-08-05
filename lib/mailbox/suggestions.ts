@@ -7,7 +7,7 @@ import type {
   MailboxSuggestionsResult,
   SuggestedMailboxDomain,
 } from "@/lib/mailbox/types";
-import { resend } from "@/lib/server/resend";
+import { getResendClient } from "@/lib/server/resend";
 
 interface Candidate {
   email: string;
@@ -18,7 +18,11 @@ interface Candidate {
   sent: boolean;
 }
 
-export async function getResendMailboxSuggestions(): Promise<MailboxSuggestionsResult> {
+export async function getResendMailboxSuggestions(
+  connectionId: string,
+  domainId?: string,
+): Promise<MailboxSuggestionsResult> {
+  const resend = await getResendClient(connectionId);
   const [domainResult, sentResult, receivedResult, existingMailboxes] =
     await Promise.all([
       resend.domains.list({ limit: 100 }),
@@ -28,8 +32,13 @@ export async function getResendMailboxSuggestions(): Promise<MailboxSuggestionsR
     ]);
   const domains = domainResult.data
     ? domainResult.data.data
-        .filter((domain) => domain.status === "verified")
+        .filter(
+          (domain) =>
+            domain.status === "verified" &&
+            (!domainId || domain.id === domainId),
+        )
         .map<SuggestedMailboxDomain>((domain) => ({
+          id: domain.id,
           name: domain.name.toLowerCase(),
           receiving: domain.capabilities.receiving === "enabled",
           sending: domain.capabilities.sending === "enabled",
@@ -38,7 +47,9 @@ export async function getResendMailboxSuggestions(): Promise<MailboxSuggestionsR
     : [];
   const verifiedDomains = new Set(domains.map((domain) => domain.name));
   const configuredEmails = new Set(
-    existingMailboxes.map((mailbox) => mailbox.email.toLowerCase()),
+    existingMailboxes
+      .filter((mailbox) => mailbox.connectionId === connectionId)
+      .map((mailbox) => mailbox.email.toLowerCase()),
   );
   const candidates = new Map<string, Candidate>();
 

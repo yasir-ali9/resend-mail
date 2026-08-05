@@ -38,7 +38,7 @@ const setupSteps = [
   {
     title: "Add your environment variables",
     description:
-      "Set DATABASE_URL and RESEND_API_KEY in .env; RESEND_WEBHOOK_SECRET and PASSWORD are optional.",
+      "Set DATABASE_URL, PASSWORD, SESSION_SECRET, and CREDENTIAL_ENCRYPTION_KEY in .env, then connect Resend accounts from the app.",
   },
   {
     title: "Prepare the app",

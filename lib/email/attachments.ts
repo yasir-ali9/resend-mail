@@ -4,7 +4,7 @@ import type {
   EmailAttachment,
   EmailDirection,
 } from "@/lib/email/types";
-import { resend } from "@/lib/server/resend";
+import { getResendClient } from "@/lib/server/resend";
 import type { AttachmentData } from "resend";
 
 interface CachedAttachment {
@@ -93,9 +93,11 @@ export function isDownloadableEmailAttachment(
 }
 
 export async function listResendEmailAttachments(
+  connectionId: string,
   emailId: string,
   direction: EmailDirection,
 ) {
+  const resend = await getResendClient(connectionId);
   const result =
     direction === "inbound"
       ? await resend.emails.receiving.attachments.list({
@@ -117,11 +119,12 @@ export async function listResendEmailAttachments(
 }
 
 export async function getResendEmailAttachment(
+  connectionId: string,
   emailId: string,
   attachmentId: string,
   direction: EmailDirection,
 ) {
-  const cacheKey = `${direction}:${emailId}:${attachmentId}`;
+  const cacheKey = `${connectionId}:${direction}:${emailId}:${attachmentId}`;
   const cached = attachmentCache.get(cacheKey);
 
   if (cached && cached.expiresAt > Date.now() + 60_000) {
@@ -135,6 +138,7 @@ export async function getResendEmailAttachment(
   }
 
   const request = retrieveResendEmailAttachment(
+    connectionId,
     emailId,
     attachmentId,
     direction,
@@ -159,10 +163,12 @@ export async function getResendEmailAttachment(
 }
 
 async function retrieveResendEmailAttachment(
+  connectionId: string,
   emailId: string,
   attachmentId: string,
   direction: EmailDirection,
 ) {
+  const resend = await getResendClient(connectionId);
   const result =
     direction === "inbound"
       ? await resend.emails.receiving.attachments.get({
