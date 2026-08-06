@@ -16,7 +16,7 @@ export function SetupShell({
   width = "compact",
   spacing = "loose",
 }: {
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   title: string;
   description: string;
   children: React.ReactNode;
@@ -54,10 +54,10 @@ export function SetupShell({
               </button>
               <span className="text-[13px] font-medium text-fg-30">Resend Mail</span>
             </div>
-            <span className="text-[10px] text-fg-70">{step} of 3</span>
+            <span className="text-[10px] text-fg-70">{step} of 4</span>
           </div>
           <div className="mt-4 flex gap-1">
-            {[1, 2, 3].map((item) => (
+            {[1, 2, 3, 4].map((item) => (
               <span
                 key={item}
                 className={`h-0.5 flex-1 rounded-full ${

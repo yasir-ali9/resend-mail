@@ -6,6 +6,7 @@ import {
   selectMailbox,
   updateMailbox,
   getMailbox,
+  getMailboxByEmail,
 } from "@/lib/mailbox/repository";
 import { getSession, isAuthenticated } from "@/lib/server/auth";
 import type {
@@ -32,14 +33,12 @@ export async function createMailboxAction(input: {
     return { ok: false, error: validated.error };
   }
 
+  const session = await getSession();
+  if (!session?.connectionId || session.domainId !== input.domainId) {
+    return { ok: false, error: "Choose this domain before adding a mailbox." };
+  }
+
   try {
-    const session = await getSession();
-    if (
-      !session?.connectionId ||
-      session.domainId !== input.domainId
-    ) {
-      return { ok: false, error: "Choose this domain before adding a mailbox." };
-    }
     const mailbox = await createMailbox(
       validated.name,
       validated.email,
@@ -54,6 +53,13 @@ export async function createMailboxAction(input: {
       };
     }
     if (isUniqueViolation(error)) {
+      const existing = await getMailboxByEmail(
+        validated.email,
+        session.connectionId,
+      );
+      if (existing?.domainId === input.domainId) {
+        return { ok: true, mailbox: existing };
+      }
       return {
         ok: false,
         error: "A mailbox already uses this email address.",
@@ -192,10 +198,13 @@ function validateMailbox(input: { name: string; email: string }) {
 }
 
 function isUniqueViolation(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
+  let current = error;
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (typeof current !== "object" || current === null) return false;
+    if ("code" in current && current.code === "23505") return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+
+  return false;
 }

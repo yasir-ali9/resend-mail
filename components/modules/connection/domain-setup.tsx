@@ -36,7 +36,7 @@ export function DomainSetup({ connection }: { connection: Connection }) {
       setError(result.error ?? "Unable to select this domain.");
       return;
     }
-    router.push("/inbox");
+    router.push("/setup/mailbox");
   }
 
   return (
@@ -114,7 +114,7 @@ export function DomainSetup({ connection }: { connection: Connection }) {
           onClick={() => void handleContinue()}
         >
           {pending ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
-          {pending ? "Opening..." : "Open inbox"}
+          {pending ? "Continuing..." : "Continue"}
         </Button>
       </div>
     </SetupShell>

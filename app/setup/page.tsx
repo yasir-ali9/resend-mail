@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getConnection, getDomain } from "@/lib/connection/repository";
+import { listDomainMailboxes } from "@/lib/mailbox/repository";
 import { getSession, isAuthenticated } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +17,8 @@ export default async function SetupPage() {
   if (!session.domainId) redirect("/setup/domain");
 
   const domain = await getDomain(session.domainId, connection.id);
-  redirect(domain?.status === "verified" ? "/inbox" : "/setup/domain");
+  if (domain?.status !== "verified") redirect("/setup/domain");
+
+  const mailboxes = await listDomainMailboxes(domain.id);
+  redirect(mailboxes.length ? "/inbox" : "/setup/mailbox");
 }

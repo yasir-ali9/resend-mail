@@ -29,6 +29,7 @@ export default async function MailViewPage({
       mailbox.connectionId === workspace.connection.id &&
       mailbox.domainId === workspace.domain.id,
   );
+  if (!mailboxes.length) redirect("/setup/mailbox");
   const mailboxIds = new Set(mailboxes.map((mailbox) => mailbox.id));
   const drafts = allDrafts.filter((draft) => mailboxIds.has(draft.mailboxId));
 

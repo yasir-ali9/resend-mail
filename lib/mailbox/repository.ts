@@ -69,6 +69,13 @@ export async function listConnectionMailboxes(connectionId: string) {
   return rows.map(toMailbox);
 }
 
+export async function listDomainMailboxes(domainId: string) {
+  const rows = await baseQuery()
+    .where(eq(mailboxes.domainId, domainId))
+    .orderBy(desc(mailboxes.isDefault), asc(mailboxes.name));
+  return rows.map(toMailbox);
+}
+
 export async function getMailbox(id: string) {
   const [mailbox] = await baseQuery().where(eq(mailboxes.id, id)).limit(1);
   return mailbox ? toMailbox(mailbox) : undefined;

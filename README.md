@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/eca7b3c6-c516-4e2b-a64c-1f2c82897404
 - Send, receive, preview, forward, and download attachments
 - Search or filter by sender, recipient, subject, date, read status, folder, and attachments
 - Connect multiple Resend accounts as isolated workspaces
-- Three-step setup for app access, Resend account selection, and verified domain selection
+- Four-step setup for app access, Resend account selection, verified domain selection, and first-mailbox creation
 - Dashboard mailboxes isolated to the account and domain selected in the signed session
 - Email history and mailbox data stored in a PostgreSQL database you control
 - Responsive layout for smaller screens
@@ -61,9 +61,9 @@ https://github.com/user-attachments/assets/eca7b3c6-c516-4e2b-a64c-1f2c82897404
    npm run dev
    ```
 
-6. Complete the centered setup flow: unlock the app, connect or choose a Resend account, then choose one of that account's verified domains. Sending-only and domain-restricted keys cannot list the domains or received emails required by this app.
+6. Complete the centered setup flow: unlock the app, connect or choose a Resend account, choose one of that account's verified domains, then create the domain's first mailbox. Sending-only and domain-restricted keys cannot list the domains or received emails required by this app.
 
-7. Create addresses or mailboxes like:
+7. Create more addresses or mailboxes like:
 
    ```text
    support@
