@@ -350,40 +350,35 @@ function TextAttachmentViewer({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelled = false;
 
     void fetch(previewUrl, {
       cache: "no-store",
-      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("Unable to load this file.");
         }
 
-        setContent(await response.text());
+        const nextContent = await response.text();
+        if (!cancelled) setContent(nextContent);
       })
       .catch((fetchError: unknown) => {
-        if (
-          fetchError instanceof DOMException &&
-          fetchError.name === "AbortError"
-        ) {
-          return;
+        if (!cancelled) {
+          setError(
+            fetchError instanceof Error
+              ? fetchError.message
+              : "Unable to load this file.",
+          );
         }
-
-        setError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Unable to load this file.",
-        );
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [previewUrl]);
 
   if (loading) {

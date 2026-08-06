@@ -58,7 +58,6 @@ interface LoadOptions {
   cursor?: string;
   presentation?: LoadPresentation;
   preserveExisting?: boolean;
-  signal?: AbortSignal;
   syncMode?: SyncMode;
 }
 
@@ -114,9 +113,6 @@ export function useThreads({
   const [webhookEnabled, setWebhookEnabled] = useState<boolean>();
   const latestRequest = useRef(0);
   const scheduledSearchTimer = useRef<number | undefined>(undefined);
-  const scheduledSearchController = useRef<AbortController | undefined>(
-    undefined,
-  );
   const lastLoadedMailboxView = useRef<MailboxView | undefined>(
     undefined,
   );
@@ -201,7 +197,6 @@ export function useThreads({
         cursor,
         presentation = "silent",
         preserveExisting = false,
-        signal,
         syncMode = "none",
       }: LoadOptions = {},
     ) => {
@@ -259,7 +254,6 @@ export function useThreads({
         }
         const response = await fetch(`/api/emails?${query}`, {
           cache: "no-store",
-          signal,
         });
         const result = (await response.json()) as MailboxResponse;
 
@@ -267,7 +261,7 @@ export function useThreads({
           throw new Error(result.error || "Unable to load this mailbox.");
         }
 
-        if (requestId !== latestRequest.current || signal?.aborted) {
+        if (requestId !== latestRequest.current) {
           return;
         }
 
@@ -329,10 +323,6 @@ export function useThreads({
         setWebhookEnabled(result.webhookEnabled ?? false);
         setLoadError("");
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-
         if (requestId === latestRequest.current) {
           const message =
             error instanceof Error
@@ -349,7 +339,7 @@ export function useThreads({
         if (append) {
           setLoadingMore(false);
         }
-        if (requestId === latestRequest.current && !signal?.aborted) {
+        if (requestId === latestRequest.current) {
           setLoading(false);
           setRefreshing(false);
         }
@@ -371,15 +361,12 @@ export function useThreads({
       setSelectedThreadId(requestedThreadId);
       setSelectedThreadIds(new Set());
     }
-    const controller = new AbortController();
-    scheduledSearchController.current = controller;
     const timeout = window.setTimeout(() => {
       if (scheduledSearchTimer.current === timeout) {
         scheduledSearchTimer.current = undefined;
       }
       void loadEmails(currentFolder, search, {
         presentation: folderChanged || mailboxChanged ? "initial" : "silent",
-        signal: controller.signal,
         syncMode: folderChanged || mailboxChanged ? "auto" : "none",
       });
     }, folderChanged || mailboxChanged ? 0 : SEARCH_DEBOUNCE_MS);
@@ -387,12 +374,9 @@ export function useThreads({
 
     return () => {
       window.clearTimeout(timeout);
-      controller.abort();
+      latestRequest.current += 1;
       if (scheduledSearchTimer.current === timeout) {
         scheduledSearchTimer.current = undefined;
-      }
-      if (scheduledSearchController.current === controller) {
-        scheduledSearchController.current = undefined;
       }
     };
   }, [activeView, currentFolder, loadEmails, mailboxEmail, requestedThreadId, search]);
@@ -406,8 +390,7 @@ export function useThreads({
       window.clearTimeout(scheduledSearchTimer.current);
       scheduledSearchTimer.current = undefined;
     }
-    scheduledSearchController.current?.abort();
-    scheduledSearchController.current = undefined;
+    latestRequest.current += 1;
 
     void loadEmails(currentFolder, search, {
       presentation: "silent",
