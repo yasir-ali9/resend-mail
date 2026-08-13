@@ -10,6 +10,7 @@ import {
   Minus,
   Monitor,
   MousePointer2,
+  PanelLeft,
   PanelRight,
   Plus,
   Save,
@@ -43,11 +44,13 @@ interface TopPaneActions {
   selectPreviewSize: (size: PreviewSize) => void;
   selectView: (mode: ViewMode) => void;
   toggleProperties: () => void;
+  toggleLayers: () => void;
 }
 
 interface TopPaneProps {
   actions: TopPaneActions;
   hasSelection: boolean;
+  layersOpen: boolean;
   name: string;
   onNameChange: (name: string) => void;
   previewSize: PreviewSize;
@@ -58,6 +61,7 @@ interface TopPaneProps {
 export function TopPane({
   actions,
   hasSelection,
+  layersOpen,
   name,
   onNameChange,
   previewSize,
@@ -74,6 +78,15 @@ export function TopPane({
         >
           <Logo className="size-6" />
         </Link>
+        {viewMode === "preview" ? (
+          <SegmentButton
+            active={layersOpen}
+            label="Toggle layers"
+            onClick={actions.toggleLayers}
+          >
+            <PanelLeft className="size-3.5" />
+          </SegmentButton>
+        ) : null}
         <input
           aria-label="Template name"
           value={name}

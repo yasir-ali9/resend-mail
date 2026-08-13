@@ -11,6 +11,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -30,13 +31,17 @@ import {
   placeCaretAtEnd,
   readSelectedElement,
   setDirectTextContent,
+  stripEditorAttributes,
 } from "./dom";
 import { createElement } from "./elements";
 import { Field, inputClass, Properties } from "./properties";
+import { buildLayerTree } from "./layer-tree";
+import { LayersPanel } from "./layers";
 import { getArrowMove, isDeleteShortcut } from "./shortcuts";
 import { TopPane } from "./top-pane";
 import type {
   ElementContextMenu,
+  LayerNode,
   PreviewSize,
   SaveStatus,
   SelectedElement,
@@ -55,6 +60,9 @@ export function TemplateEditor({
   const editingElementRef = useRef<HTMLElement | null>(null);
   const editingOriginalTextRef = useRef("");
   const inlineEditCleanupRef = useRef<() => void>(() => undefined);
+  const layerIdByElementRef = useRef(new WeakMap<HTMLElement, string>());
+  const layerIdSequenceRef = useRef(0);
+  const hoveredLayerElementRef = useRef<HTMLElement | null>(null);
   const lastSavedRef = useRef({
     name: initialTemplate.name,
     subject: initialTemplate.subject,
@@ -66,6 +74,9 @@ export function TemplateEditor({
   const [html, setHtml] = useState(initialTemplate.html);
   const [previewHtml, setPreviewHtml] = useState(initialTemplate.html);
   const [selected, setSelected] = useState<SelectedElement>();
+  const [selectedLayerId, setSelectedLayerId] = useState<string>();
+  const [layers, setLayers] = useState<LayerNode[]>([]);
+  const [layersOpen, setLayersOpen] = useState(true);
   const [elementContextMenu, setElementContextMenu] =
     useState<ElementContextMenu>();
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -106,6 +117,26 @@ export function TemplateEditor({
     [initialTemplate.id],
   );
 
+  const handleLayerShortcut = useEffectEvent((event: KeyboardEvent) => {
+    const target = event.target;
+    if (
+      viewMode !== "preview" ||
+      !(target instanceof HTMLElement) ||
+      !target.closest("[data-editor-layer-row]") ||
+      !selectedElementRef.current
+    )
+      return;
+    if (isDeleteShortcut(event)) {
+      event.preventDefault();
+      removeSelected();
+      return;
+    }
+    const direction = getArrowMove(event);
+    if (!direction) return;
+    event.preventDefault();
+    moveSelected(direction);
+  });
+
   useEffect(() => {
     const last = lastSavedRef.current;
     if (name === last.name && subject === last.subject && html === last.html)
@@ -123,7 +154,9 @@ export function TemplateEditor({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save(name, subject, html);
+        return;
       }
+      handleLayerShortcut(event);
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
@@ -143,10 +176,16 @@ export function TemplateEditor({
     if (!document) return;
     inlineEditCleanupRef.current();
     editingElementRef.current = null;
+    selectedElementRef.current = null;
+    layerIdByElementRef.current = new WeakMap();
+    layerIdSequenceRef.current = 0;
+    setSelectedLayerId(undefined);
+    setSelected(undefined);
     const style = document.createElement("style");
     style.dataset.editorStyle = "true";
-    style.textContent = `html, body { overflow: hidden !important; scrollbar-width: none !important; -ms-overflow-style: none !important; } html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } [data-template-selected="true"] { outline: 2px solid #635bff !important; outline-offset: 2px !important; cursor: default !important; } [data-template-editing="true"], [data-template-editing="true"] * { cursor: text !important; caret-color: #635bff !important; user-select: text !important; } body * { cursor: default; }`;
+    style.textContent = `html, body { overflow: hidden !important; scrollbar-width: none !important; -ms-overflow-style: none !important; } html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } [data-template-selected="true"] { outline: 2px solid #635bff !important; outline-offset: 2px !important; cursor: default !important; } [data-template-hovered="true"]:not([data-template-selected="true"]) { outline: 1px dashed #635bff !important; outline-offset: 2px !important; } [data-template-editing="true"], [data-template-editing="true"] * { cursor: text !important; caret-color: #635bff !important; user-select: text !important; } body * { cursor: default; }`;
     document.head?.append(style);
+    refreshLayers();
 
     const measurePreview = () => {
       if (iframeRef.current !== iframe || !document.body) return;
@@ -230,6 +269,7 @@ export function TemplateEditor({
     selectedElementRef.current?.removeAttribute("data-template-selected");
     selectedElementRef.current = element;
     element.dataset.templateSelected = "true";
+    setSelectedLayerId(getLayerId(element));
     setSelected(readSelectedElement(element));
     setPropertiesOpen(true);
   }
@@ -238,6 +278,7 @@ export function TemplateEditor({
     finishInlineEditing();
     selectedElementRef.current?.removeAttribute("data-template-selected");
     selectedElementRef.current = null;
+    setSelectedLayerId(undefined);
     setSelected(undefined);
     setElementContextMenu(undefined);
   }
@@ -291,7 +332,7 @@ export function TemplateEditor({
     element.removeAttribute("data-template-editing");
     editingElementRef.current = null;
     setSelected(readSelectedElement(element));
-    setHtml(serializePreview());
+    commitPreviewChanges();
   }
 
   function mutateSelected(mutator: (element: HTMLElement) => void) {
@@ -299,7 +340,56 @@ export function TemplateEditor({
     if (!element) return;
     mutator(element);
     setSelected(readSelectedElement(element));
+    commitPreviewChanges();
+  }
+
+  function getLayerId(element: HTMLElement) {
+    const existing = layerIdByElementRef.current.get(element);
+    if (existing) return existing;
+    const id = `layer-${++layerIdSequenceRef.current}`;
+    layerIdByElementRef.current.set(element, id);
+    return id;
+  }
+
+  function refreshLayers() {
+    const body = iframeRef.current?.contentDocument?.body;
+    if (!body) {
+      setLayers([]);
+      return;
+    }
+    setLayers(buildLayerTree(body, getLayerId));
+  }
+
+  function commitPreviewChanges() {
     setHtml(serializePreview());
+    refreshLayers();
+    window.requestAnimationFrame(() => measurePreviewRef.current());
+  }
+
+  function hoverLayer(node?: LayerNode) {
+    hoveredLayerElementRef.current?.removeAttribute("data-template-hovered");
+    hoveredLayerElementRef.current = node?.element ?? null;
+    node?.element.setAttribute("data-template-hovered", "true");
+  }
+
+  function focusLayer(node: LayerNode) {
+    selectElement(node.element);
+    const canvas = previewCanvasRef.current;
+    const iframe = iframeRef.current;
+    if (!canvas || !iframe) return;
+    const canvasBounds = canvas.getBoundingClientRect();
+    const iframeBounds = iframe.getBoundingClientRect();
+    const elementBounds = node.element.getBoundingClientRect();
+    const elementCenter =
+      iframeBounds.top -
+      canvasBounds.top +
+      canvas.scrollTop +
+      elementBounds.top +
+      elementBounds.height / 2;
+    canvas.scrollTo({
+      top: Math.max(0, elementCenter - canvas.clientHeight / 2),
+      behavior: "smooth",
+    });
   }
 
   function serializePreview() {
@@ -307,18 +397,13 @@ export function TemplateEditor({
     if (!document) return html;
     const clone = document.documentElement.cloneNode(true) as HTMLElement;
     clone.querySelector("[data-editor-style]")?.remove();
-    clone
-      .querySelectorAll("[data-template-selected]")
-      .forEach((element) => element.removeAttribute("data-template-selected"));
-    clone.querySelectorAll("[data-template-editing]").forEach((element) => {
-      element.removeAttribute("contenteditable");
-      element.removeAttribute("data-template-editing");
-    });
+    stripEditorAttributes(clone);
     return `<!doctype html>\n${clone.outerHTML}`;
   }
 
   function applySource() {
     selectedElementRef.current = null;
+    setSelectedLayerId(undefined);
     setSelected(undefined);
     setPreviewHtml(html);
     setViewMode("preview");
@@ -335,7 +420,7 @@ export function TemplateEditor({
       selectedElement.insertAdjacentElement("afterend", element);
     else document.body.append(element);
     selectElement(element);
-    setHtml(serializePreview());
+    commitPreviewChanges();
   }
 
   function removeSelected() {
@@ -343,25 +428,26 @@ export function TemplateEditor({
     if (!element) return;
     element.remove();
     selectedElementRef.current = null;
+    setSelectedLayerId(undefined);
     setSelected(undefined);
-    setHtml(serializePreview());
+    commitPreviewChanges();
   }
 
   function duplicateSelected() {
     const element = selectedElementRef.current;
     if (!element) return;
     const duplicate = element.cloneNode(true) as HTMLElement;
-    duplicate.removeAttribute("data-template-selected");
+    stripEditorAttributes(duplicate);
     element.insertAdjacentElement("afterend", duplicate);
     selectElement(duplicate);
-    setHtml(serializePreview());
+    commitPreviewChanges();
   }
 
   function copySelected() {
     const element = selectedElementRef.current;
     if (!element) return;
     const copy = element.cloneNode(true) as HTMLElement;
-    copy.removeAttribute("data-template-selected");
+    stripEditorAttributes(copy);
     void navigator.clipboard.writeText(copy.outerHTML);
   }
 
@@ -375,7 +461,8 @@ export function TemplateEditor({
       );
     if (direction === "down" && element.nextElementSibling)
       element.parentElement.insertBefore(element.nextElementSibling, element);
-    setHtml(serializePreview());
+    setSelected(readSelectedElement(element));
+    commitPreviewChanges();
   }
 
   function beginPreviewResize(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -427,7 +514,6 @@ export function TemplateEditor({
     setPreviewResizing(false);
   }
 
-  const selectedElement = selectedElementRef.current;
   const contextMenuItems: ContextMenuItem[] = [
     {
       id: "delete",
@@ -452,14 +538,14 @@ export function TemplateEditor({
       id: "move-down",
       label: "Move down",
       icon: <ArrowDown aria-hidden="true" className="size-3" />,
-      disabled: !selectedElement?.nextElementSibling,
+      disabled: !selected?.canMoveDown,
       onClick: () => moveSelected("down"),
     },
     {
       id: "move-up",
       label: "Move up",
       icon: <ArrowUp aria-hidden="true" className="size-3" />,
-      disabled: !selectedElement?.previousElementSibling,
+      disabled: !selected?.canMoveUp,
       onClick: () => moveSelected("up"),
     },
   ];
@@ -473,6 +559,7 @@ export function TemplateEditor({
         viewMode={viewMode}
         previewSize={previewSize}
         hasSelection={Boolean(selected)}
+        layersOpen={layersOpen}
         actions={{
           insert: insertElement,
           move: moveSelected,
@@ -498,10 +585,30 @@ export function TemplateEditor({
               viewMode === "preview" ? serializePreview() : html,
             ),
           toggleProperties: () => setPropertiesOpen((open) => !open),
+          toggleLayers: () => {
+            if (layersOpen) hoverLayer();
+            setLayersOpen((open) => !open);
+          },
         }}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {viewMode === "preview" && layersOpen ? (
+          <LayersPanel
+            nodes={layers}
+            selectedId={selectedLayerId}
+            onClose={() => {
+              hoverLayer();
+              setLayersOpen(false);
+            }}
+            onSelect={(node) => selectElement(node.element)}
+            onFocus={focusLayer}
+            onHover={hoverLayer}
+            onContextMenu={(_node, position) =>
+              setElementContextMenu({ position })
+            }
+          />
+        ) : null}
         <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
             ref={previewCanvasRef}

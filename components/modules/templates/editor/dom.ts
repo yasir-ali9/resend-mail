@@ -3,6 +3,8 @@ import type { SelectedElement } from "./types";
 export function readSelectedElement(element: HTMLElement): SelectedElement {
   const style = element.style;
   return {
+    canMoveDown: Boolean(element.nextElementSibling),
+    canMoveUp: Boolean(element.previousElementSibling),
     tagName: element.tagName,
     text: getDirectTextContent(element),
     href: element.getAttribute("href") ?? "",
@@ -59,4 +61,14 @@ export function placeCaretAtEnd(element: HTMLElement) {
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+export function stripEditorAttributes(element: HTMLElement) {
+  const elements = [element, ...Array.from(element.querySelectorAll("*"))];
+  elements.forEach((child) => {
+    child.removeAttribute("data-template-selected");
+    child.removeAttribute("data-template-hovered");
+    child.removeAttribute("data-template-editing");
+    child.removeAttribute("contenteditable");
+  });
 }

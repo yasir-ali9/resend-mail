@@ -5,6 +5,8 @@ export type ElementKind = "text" | "button" | "image" | "divider" | "section";
 export type MoveDirection = "up" | "down";
 
 export interface SelectedElement {
+  canMoveDown: boolean;
+  canMoveUp: boolean;
   tagName: string;
   text: string;
   href: string;
@@ -24,4 +26,12 @@ export interface SelectedElement {
 
 export interface ElementContextMenu {
   position: { x: number; y: number };
+}
+
+export interface LayerNode {
+  children: LayerNode[];
+  element: HTMLElement;
+  id: string;
+  label: string;
+  tagName: string;
 }
