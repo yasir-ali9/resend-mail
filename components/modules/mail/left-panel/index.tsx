@@ -3,6 +3,7 @@
 import {
   FileText,
   Inbox,
+  LayoutTemplate,
   Mails,
   Pencil,
   Send,
@@ -58,6 +59,7 @@ const navigation = [
   { id: "starred" as const, label: "Starred", icon: Star },
   { id: "sent" as const, label: "Sent", icon: Send },
   { id: "drafts" as const, label: "Drafts", icon: FileText },
+  { id: "templates" as const, label: "Templates", icon: LayoutTemplate },
   { id: "everything" as const, label: "Everything", icon: Mails },
   { id: "spam" as const, label: "Spam", icon: ShieldAlert },
   { id: "trash" as const, label: "Trash", icon: Trash2 },

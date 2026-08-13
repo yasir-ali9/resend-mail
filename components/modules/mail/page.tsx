@@ -10,6 +10,7 @@ import type { MailDraft } from "@/lib/draft/types";
 import type { Connection, ConnectionDomain } from "@/lib/connection/types";
 import type { MailboxFolderCounts } from "@/lib/email/types";
 import type { Mailbox } from "@/lib/mailbox/types";
+import type { TemplateSummary } from "@/lib/template/types";
 
 import { LeftPanel } from "./left-panel";
 import { AddMailboxModal } from "./left-panel/add";
@@ -34,6 +35,7 @@ interface MailPageProps {
   initialThreadId?: string;
   initialDrafts: MailDraft[];
   initialMailboxes: Mailbox[];
+  initialTemplates: TemplateSummary[];
   activeConnection: Connection;
   activeDomain: ConnectionDomain;
 }
@@ -43,6 +45,7 @@ export function MailPage({
   initialThreadId,
   initialDrafts,
   initialMailboxes,
+  initialTemplates,
   activeConnection,
   activeDomain,
 }: MailPageProps) {
@@ -447,6 +450,7 @@ export function MailPage({
             activeThreadId={activeThreadId}
             composeMode={composeMode}
             drafts={drafts}
+            templates={initialTemplates}
             selectedMailbox={selectedMailbox}
             onDraftDeleted={handleDraftDeleted}
             onDraftUpsert={handleDraftUpsert}

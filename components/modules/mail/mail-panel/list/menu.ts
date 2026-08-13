@@ -10,6 +10,7 @@ import type { MailboxView } from "../thread/state";
 export interface ThreadMenuActions {
   archive: (thread: MailboxThread) => void;
   canReplyAll: (email: MailboxEmail) => boolean;
+  cloneTemplate: (email: MailboxEmail) => void;
   deletePermanently: (thread: MailboxThread) => void;
   forward: (email: MailboxEmail) => void;
   markRead: (thread: MailboxThread) => void;
@@ -71,6 +72,12 @@ export function getThreadMenuItems({
     id: "forward",
     label: "Forward",
     onClick: () => actions.forward(email),
+    separator: true,
+  });
+  items.push({
+    id: "clone-template",
+    label: "Clone as template",
+    onClick: () => actions.cloneTemplate(email),
     separator: true,
   });
   items.push({

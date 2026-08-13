@@ -3,6 +3,7 @@
 import {
   ChevronDown,
   Forward as ForwardIcon,
+  LayoutTemplate,
   Paperclip,
   Reply as ReplyIcon,
   ReplyAll as ReplyAllIcon,
@@ -193,6 +194,7 @@ interface ThreadMessageProps {
   expandedInitially: boolean;
   loading: boolean;
   onForward: (email: MailboxEmail) => void;
+  onCloneTemplate: (email: MailboxEmail) => void;
   onReply: (email: MailboxEmail, mode: ReplyMode) => void;
   showReplyAll: (email: MailboxEmail) => boolean;
 }
@@ -202,6 +204,7 @@ export function ThreadMessage({
   expandedInitially,
   loading,
   onForward,
+  onCloneTemplate,
   onReply,
   showReplyAll,
 }: ThreadMessageProps) {
@@ -339,6 +342,16 @@ export function ThreadMessage({
             <ForwardIcon aria-hidden="true" className="size-3.5" />
             {loading ? "Loading..." : "Forward"}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onCloneTemplate(email)}
+            className="gap-1.5 border-bd-40 text-fg-50 group-hover:border-bd-50/80 hover:bg-bk-70 hover:text-fg-40"
+          >
+            <LayoutTemplate aria-hidden="true" className="size-3.5" />
+            Clone as template
+          </Button>
           </span>
           <ChevronDown
             aria-hidden="true"
@@ -406,6 +419,16 @@ export function ThreadMessage({
             >
               <ForwardIcon aria-hidden="true" className="size-3.5" />
               {loading ? "Loading..." : "Forward"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onCloneTemplate(email)}
+              className="gap-1.5 border-bd-40 text-fg-50 group-hover:border-bd-50/80 hover:bg-bk-70 hover:text-fg-40"
+            >
+              <LayoutTemplate aria-hidden="true" className="size-3.5" />
+              Clone as template
             </Button>
           </div>
         </div>

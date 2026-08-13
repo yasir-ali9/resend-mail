@@ -14,16 +14,20 @@ import {
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/reusables/button";
+import { TemplatesPanel } from "@/components/modules/templates/list";
 import type { MailDraft } from "@/lib/draft/types";
 import {
   DEFAULT_EMAIL_SEARCH_FILTERS,
   getEmailSearchFilterCount,
   type EmailSearchFilters,
+  type MailboxEmail,
   type MailboxFolderCounts,
   type MailboxThread,
 } from "@/lib/email/types";
 import { formatMailbox, type Mailbox } from "@/lib/mailbox/types";
+import type { TemplateSummary } from "@/lib/template/types";
 import { cn } from "@/lib/utils";
+import { cloneEmailAsTemplateAction } from "@/components/modules/templates/actions";
 
 import type { ComposeRouteMode, HomeView } from "../types";
 import { Compose } from "./compose";
@@ -45,6 +49,7 @@ interface MailPanelProps {
   activeThreadId?: string;
   composeMode?: ComposeRouteMode;
   drafts: MailDraft[];
+  templates: TemplateSummary[];
   selectedMailbox?: Mailbox;
   onDraftDeleted: (draftId: string) => void;
   onDraftUpsert: (draft: MailDraft) => void;
@@ -64,6 +69,7 @@ export function MailPanel({
   activeThreadId,
   composeMode,
   drafts,
+  templates,
   selectedMailbox,
   onDraftDeleted,
   onDraftUpsert,
@@ -166,6 +172,17 @@ export function MailPanel({
     },
     [onThreadOpen, openThread],
   );
+  const handleCloneAsTemplate = useCallback(
+    async (email: MailboxEmail) => {
+      const result = await cloneEmailAsTemplateAction(email.id);
+      if (result.ok && result.template) {
+        window.location.assign(`/edit/${result.template.id}`);
+        return;
+      }
+      warn(result.error || "Unable to clone this email as a template.");
+    },
+    [warn],
+  );
   const compose = useCompose({
     activeView,
     composeMode,
@@ -207,6 +224,24 @@ export function MailPanel({
             mailbox={
               selectedMailbox ? formatMailbox(selectedMailbox) : ""
             }
+            attachmentInput={compose.attachmentInput}
+            value={compose.value}
+            status={compose.status}
+            actions={compose.actions}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  if (activeView === "templates") {
+    return (
+      <>
+        <TemplatesPanel initialTemplates={templates} />
+        {composeMode ? (
+          <Compose
+            mode={compose.mode}
+            mailbox={selectedMailbox ? formatMailbox(selectedMailbox) : ""}
             attachmentInput={compose.attachmentInput}
             value={compose.value}
             status={compose.status}
@@ -392,6 +427,7 @@ export function MailPanel({
                       loadingThreadDetailId === selectedThread.id
                     }
                     onForward={compose.startForward}
+                    onCloneTemplate={handleCloneAsTemplate}
                     onReply={compose.startReply}
                     showReplyAll={compose.canReplyAll}
                   />
@@ -436,6 +472,7 @@ export function MailPanel({
             archive: (thread) => void updateThreadArchive(thread),
             bulk: (action) => void runBulkAction(action),
             canReplyAll: compose.canReplyAll,
+            cloneTemplate: (email) => void handleCloneAsTemplate(email),
             clearSelection,
             deletePermanently: (thread) =>
               requestPermanentDelete([thread]),

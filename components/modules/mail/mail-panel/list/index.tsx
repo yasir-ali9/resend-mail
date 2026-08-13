@@ -60,6 +60,7 @@ interface MailListProps {
     archive: (thread: MailboxThread) => void;
     bulk: (action: EmailThreadBulkAction) => void;
     canReplyAll: (email: MailboxEmail) => boolean;
+    cloneTemplate: (email: MailboxEmail) => void;
     clearSelection: () => void;
     deletePermanently: (thread: MailboxThread) => void;
     deleteSelected: () => void;
@@ -112,6 +113,7 @@ export function MailList({
   const menuActions: ThreadMenuActions = {
     archive: actions.archive,
     canReplyAll: actions.canReplyAll,
+    cloneTemplate: actions.cloneTemplate,
     deletePermanently: actions.deletePermanently,
     forward: actions.forward,
     markRead: actions.markRead,

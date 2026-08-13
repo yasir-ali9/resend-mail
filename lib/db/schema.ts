@@ -212,6 +212,43 @@ export const drafts = pgTable(
   ],
 );
 
+export type TemplateSourceType = "blank" | "built_in" | "email" | "duplicate";
+
+export const templates = pgTable(
+  "templates",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    domainId: text("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    subject: text("subject").notNull().default(""),
+    html: text("html").notNull(),
+    textBody: text("text_body").notNull().default(""),
+    sourceType: text("source_type")
+      .$type<TemplateSourceType>()
+      .notNull()
+      .default("blank"),
+    sourceEmailId: text("source_email_id"),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", timestampOptions).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", timestampOptions).notNull().defaultNow(),
+  },
+  (table) => [
+    index("templates_domain_updated_at_idx").on(
+      table.domainId,
+      table.updatedAt.desc(),
+    ),
+    index("templates_connection_idx").on(table.connectionId),
+  ],
+);
+
 export type EmailRow = typeof emails.$inferSelect;
 export type NewEmailRow = typeof emails.$inferInsert;
 export type MailboxRow = typeof mailboxes.$inferSelect;
@@ -222,3 +259,5 @@ export type DomainRow = typeof domains.$inferSelect;
 export type NewDomainRow = typeof domains.$inferInsert;
 export type DraftRow = typeof drafts.$inferSelect;
 export type NewDraftRow = typeof drafts.$inferInsert;
+export type TemplateRow = typeof templates.$inferSelect;
+export type NewTemplateRow = typeof templates.$inferInsert;

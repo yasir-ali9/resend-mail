@@ -5,6 +5,7 @@ import { isHomeView } from "@/components/modules/mail/types";
 import { listDrafts } from "@/lib/draft/repository";
 import { listMailboxesWithVerification } from "@/lib/mailbox/verification";
 import { getActiveWorkspace } from "@/lib/server/workspace";
+import { listTemplates } from "@/lib/template/repository";
 
 export default async function MailViewPage({
   params,
@@ -17,13 +18,15 @@ export default async function MailViewPage({
     notFound();
   }
 
-  const [workspace, allMailboxes, allDrafts] = await Promise.all([
-    getActiveWorkspace(),
+  const workspace = await getActiveWorkspace();
+  if (!workspace) redirect("/setup");
+
+  const [allMailboxes, allDrafts, templates] = await Promise.all([
     listMailboxesWithVerification(),
     listDrafts(),
+    listTemplates(workspace.connection.id, workspace.domain.id),
   ]);
 
-  if (!workspace) redirect("/setup");
   const mailboxes = allMailboxes.filter(
     (mailbox) =>
       mailbox.connectionId === workspace.connection.id &&
@@ -38,6 +41,7 @@ export default async function MailViewPage({
       initialActiveView={view}
       initialDrafts={drafts}
       initialMailboxes={mailboxes}
+      initialTemplates={templates}
       activeConnection={workspace.connection}
       activeDomain={workspace.domain}
     />

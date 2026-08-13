@@ -7,10 +7,19 @@ import type {
 
 export type MailboxView = EmailFolder;
 
+const mailboxViews = new Set<string>([
+  "inbox",
+  "sent",
+  "starred",
+  "everything",
+  "spam",
+  "trash",
+]);
+
 export function isMailboxView(
-  view: MailboxView | "compose" | "drafts",
+  view: string,
 ): view is MailboxView {
-  return view !== "compose" && view !== "drafts";
+  return mailboxViews.has(view);
 }
 
 export const folderLabels: Record<MailboxView, string> = {

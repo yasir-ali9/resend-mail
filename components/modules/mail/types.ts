@@ -1,6 +1,6 @@
 import type { EmailFolder } from "@/lib/email/types";
 
-export type HomeView = EmailFolder | "compose" | "drafts";
+export type HomeView = EmailFolder | "compose" | "drafts" | "templates";
 export type MailRouteView = Exclude<HomeView, "compose">;
 export type ComposeRouteMode = "floating" | "drawer" | "full";
 
@@ -9,6 +9,7 @@ export const HOME_VIEWS = [
   "starred",
   "sent",
   "drafts",
+  "templates",
   "everything",
   "spam",
   "trash",
