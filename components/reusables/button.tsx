@@ -21,7 +21,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       primary:
         "bg-ac-01 text-white hover:[background:color-mix(in_srgb,theme(colors.ac.01)_90%,black)]",
       secondary:
-        "bg-bk-40 text-fg-50 border border-bd-50 hover:bg-bk-30 hover:text-fg-30",
+        "border border-bd-30 bg-bk-80 text-fg-60 hover:bg-bk-70 hover:text-fg-40",
       ghost: "bg-bk-40 text-fg-60 hover:text-fg-50 hover:bg-bk-30",
       outline: "border border-bd-50 text-fg-30 hover:bg-bk-40 hover:text-fg-50",
       danger: "bg-[#c70036] text-white hover:bg-[#a50036]",

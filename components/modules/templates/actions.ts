@@ -22,6 +22,7 @@ import type { TemplateActionResult } from "@/lib/template/types";
 const templateIdPattern = /^(?:template_)?[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_NAME_LENGTH = 120;
 const MAX_SUBJECT_LENGTH = 998;
+const MAX_TEMPLATE_HTML_LENGTH = 2_000_000;
 
 export async function createBlankTemplateAction(): Promise<TemplateActionResult> {
   const workspace = await requireWorkspace();
@@ -37,6 +38,43 @@ export async function createBlankTemplateAction(): Promise<TemplateActionResult>
     html,
     text: templateHtmlToText(html),
     sourceType: "blank",
+  });
+
+  return { ok: true, template };
+}
+
+export async function importHtmlTemplateAction(input: {
+  fileName: string;
+  html: string;
+}): Promise<TemplateActionResult> {
+  const workspace = await requireWorkspace();
+  if (!workspace.ok) return workspace;
+
+  if (!input.html.trim()) {
+    return { ok: false, error: "The selected HTML file is empty." };
+  }
+  if (input.html.length > MAX_TEMPLATE_HTML_LENGTH) {
+    return { ok: false, error: "Template HTML is too large." };
+  }
+
+  const fileName = input.fileName
+    .split(/[\\/]/)
+    .at(-1)
+    ?.trim()
+    .slice(0, 255) || "Imported template.html";
+  const name =
+    cleanName(fileName.replace(/\.html?$/i, "")) || "Imported template";
+  const html = sanitizeTemplateHtml(input.html);
+  const template = await createTemplate({
+    id: createTemplateId(),
+    connectionId: workspace.connectionId,
+    domainId: workspace.domainId,
+    name,
+    subject: "",
+    html,
+    text: templateHtmlToText(html),
+    sourceType: "import",
+    metadata: { importedFileName: fileName },
   });
 
   return { ok: true, template };
@@ -145,7 +183,7 @@ export async function saveTemplateAction(input: {
   const name = cleanName(input.name);
   const subject = input.subject.trim().slice(0, MAX_SUBJECT_LENGTH);
   if (!name) return { ok: false, error: "Template name is required." };
-  if (input.html.length > 2_000_000) {
+  if (input.html.length > MAX_TEMPLATE_HTML_LENGTH) {
     return { ok: false, error: "Template HTML is too large." };
   }
 

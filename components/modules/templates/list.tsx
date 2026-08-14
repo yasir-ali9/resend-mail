@@ -3,6 +3,7 @@
 import {
   Copy,
   FilePlus2,
+  FileUp,
   LoaderCircle,
   MoreHorizontal,
   Pencil,
@@ -13,6 +14,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
@@ -32,7 +34,10 @@ import {
   cloneTemplateAction,
   createBlankTemplateAction,
   deleteTemplateAction,
+  importHtmlTemplateAction,
 } from "./actions";
+
+const MAX_IMPORT_SIZE = 2_000_000;
 
 interface TemplateMenu {
   items: ContextMenuItem[];
@@ -59,6 +64,7 @@ export function TemplatesPanel({
   const [category, setCategory] = useState<TemplateCategory>("both");
   const [busyId, setBusyId] = useState<string>();
   const [contextMenu, setContextMenu] = useState<TemplateMenu>();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   async function createBlank() {
@@ -70,6 +76,45 @@ export function TemplatesPanel({
     }
     toast(result.error || "Unable to create a template.", "error");
     setBusyId(undefined);
+  }
+
+  async function importHtml(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    if (!/\.html?$/i.test(file.name) && file.type !== "text/html") {
+      toast("Choose an HTML file (.html or .htm).", "error");
+      return;
+    }
+    if (file.size > MAX_IMPORT_SIZE) {
+      toast("The HTML file must be smaller than 2 MB.", "error");
+      return;
+    }
+
+    setBusyId("import");
+    try {
+      const html = await file.text();
+      if (!html.trim()) {
+        toast("The selected HTML file is empty.", "error");
+        return;
+      }
+
+      const result = await importHtmlTemplateAction({
+        fileName: file.name,
+        html,
+      });
+      if (result.ok && result.template) {
+        window.location.assign(`/edit/${result.template.id}`);
+        return;
+      }
+      toast(result.error || "Unable to import the template.", "error");
+    } catch {
+      toast("Unable to read or import the HTML file.", "error");
+    } finally {
+      setBusyId(undefined);
+    }
   }
 
   async function cloneBuiltIn() {
@@ -220,6 +265,33 @@ export function TemplatesPanel({
             onClick={() => setCategory("built-for-you")}
           />
         </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".html,.htm,text/html"
+          className="sr-only"
+          disabled={Boolean(busyId)}
+          onChange={(event) => void importHtml(event)}
+        />
+        <Button
+          type="button"
+          aria-label="Import HTML template"
+          size="sm"
+          variant="secondary"
+          onClick={() => importInputRef.current?.click()}
+          disabled={Boolean(busyId)}
+          className="gap-1.5"
+        >
+          {busyId === "import" ? (
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-3.5 animate-spin"
+            />
+          ) : (
+            <FileUp aria-hidden="true" className="size-3.5" />
+          )}
+          <span className="hidden sm:inline">Import HTML</span>
+        </Button>
         <Button
           type="button"
           aria-label="New template"

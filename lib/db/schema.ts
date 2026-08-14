@@ -212,7 +212,12 @@ export const drafts = pgTable(
   ],
 );
 
-export type TemplateSourceType = "blank" | "built_in" | "email" | "duplicate";
+export type TemplateSourceType =
+  | "blank"
+  | "built_in"
+  | "email"
+  | "duplicate"
+  | "import";
 
 export const templates = pgTable(
   "templates",
