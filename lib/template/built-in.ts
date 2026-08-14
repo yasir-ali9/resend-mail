@@ -1,59 +1,190 @@
+import { changelogTemplate } from "@/lib/template/built-ins/changelog";
+
 export const BUILT_IN_TEMPLATE_ID = "built_in_welcome";
 
 export const builtInTemplate = {
   id: BUILT_IN_TEMPLATE_ID,
-  name: "A warm welcome",
-  subject: "Welcome — we’re glad you’re here",
-  description: "A polished, responsive welcome email ready to make your own.",
+  name: "Warm welcome",
+  subject: "Welcome — your space is ready",
+  description: "Clean, thoughtful welcome email ready to make your own.",
   html: `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>Welcome</title>
-  <style>
-    body { margin: 0; padding: 0; background: #f4f4f5; }
-    table { border-collapse: collapse; border-spacing: 0; }
-    img { border: 0; display: block; max-width: 100%; }
-    @media only screen and (max-width: 620px) {
-      .email-shell { width: 100% !important; }
-      .email-content { padding: 36px 24px !important; }
-    }
-  </style>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Everything you need to get started.</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;background:#f4f4f5;">
-    <tr>
-      <td align="center" style="padding:40px 12px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="email-shell" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
+<html dir="ltr" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta
+      name="format-detection"
+      content="telephone=no,address=no,email=no,date=no,url=no"
+    />
+    <title>Welcome</title>
+    <style>
+      @media only screen and (max-width: 620px) {
+        .email-content { padding: 32px 16px 24px !important; }
+      }
+    </style>
+  </head>
+  <body
+    dir="ltr"
+    lang="en"
+    style="margin: 0; padding: 0; word-spacing: normal; background-color: #ffffff"
+  >
+    <div
+      style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent"
+    >
+      Everything you need to get started is ready.
+    </div>
+    <div
+      role="article"
+      aria-label="Welcome email"
+      style="margin: 0 auto; max-width: 680px; background-color: #ffffff"
+    >
+      <table
+        role="presentation"
+        width="100%"
+        border="0"
+        cellpadding="0"
+        cellspacing="0"
+        style="width: 100%; border-collapse: collapse"
+      >
+        <tbody>
           <tr>
-            <td style="height:8px;background:#18181b;font-size:0;line-height:0;">&nbsp;</td>
-          </tr>
-          <tr>
-            <td class="email-content" style="padding:52px 48px;">
-              <p style="margin:0 0 28px;font-size:13px;line-height:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;">Your company</p>
-              <h1 style="margin:0 0 18px;font-size:36px;line-height:42px;letter-spacing:-0.03em;color:#18181b;">Welcome aboard.</h1>
-              <p style="margin:0 0 16px;font-size:16px;line-height:26px;color:#52525b;">Thanks for joining us. We built this experience to keep the important things simple and help you get value from day one.</p>
-              <p style="margin:0 0 32px;font-size:16px;line-height:26px;color:#52525b;">Take a minute to explore your account, then reach out whenever you need a hand.</p>
-              <table role="presentation" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="border-radius:7px;background:#18181b;">
-                    <a href="https://example.com" style="display:inline-block;padding:13px 20px;font-size:14px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;">Get started</a>
-                  </td>
-                </tr>
+            <td class="email-content" style="padding: 40px 16px 24px">
+              <table
+                role="presentation"
+                width="100%"
+                border="0"
+                cellpadding="0"
+                cellspacing="0"
+                style="
+                  width: 100%;
+                  border-collapse: collapse;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                  font-size: 17px;
+                  line-height: 25px;
+                  color: #222222;
+                "
+              >
+                <tbody>
+                  <tr>
+                    <td
+                      align="left"
+                      style="padding: 0; font-size: 13px; line-height: 20px; font-weight: 700; letter-spacing: 0.02em"
+                    >
+                      Example Inc.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td height="40" style="height: 40px; line-height: 40px">
+                      &nbsp;
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      align="left"
+                      style="padding: 0 0 4px; font-weight: 700"
+                    >
+                      Welcome.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 0 16px">
+                      We are glad you are here. Your account is ready, and
+                      everything you need to get started is waiting for you.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding: 8px 0 24px">
+                      <img
+                        src="https://images.unsplash.com/photo-1784012980517-005c26585344?auto=format&amp;fit=crop&amp;w=1360&amp;q=80"
+                        width="648"
+                        alt="A calm and welcoming reception space"
+                        style="display: block; width: 100%; max-width: 648px; height: auto; border: 0; border-radius: 8px; outline: none; text-decoration: none"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      align="left"
+                      style="padding: 0 0 4px; font-weight: 700"
+                    >
+                      Start with the essentials
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 0 16px">
+                      Take a moment to explore your space, invite your team,
+                      and shape the experience around the way you work.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 0 16px">
+                      <table
+                        role="presentation"
+                        border="0"
+                        cellpadding="0"
+                        cellspacing="0"
+                        style="border-collapse: collapse"
+                      >
+                        <tbody>
+                          <tr>
+                            <td align="center" style="border-radius: 8px; background-color: #111111">
+                              <a
+                                href="https://example.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style="display: inline-block; padding: 12px 20px; border-radius: 8px; background-color: #111111; color: #ffffff; font-size: 15px; line-height: 21px; font-weight: 500; text-decoration: none"
+                              >
+                                Get started
+                              </a>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding: 16px 0 24px">
+                      <div
+                        style="height: 1px; border-top: 1px solid #e6e6e6; font-size: 1px; line-height: 1px"
+                      >&nbsp;</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 0 16px">
+                      Need a hand? Reply to this email and we will help.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 0 16px">
+                      Warmly,<br />The team
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding: 16px 0">
+                      <div
+                        style="height: 1px; border-top: 1px solid #e6e6e6; font-size: 1px; line-height: 1px"
+                      >&nbsp;</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      align="left"
+                      style="padding: 0; font-size: 13px; line-height: 20px; color: #8a8a8a"
+                    >
+                      Your company &middot; 123 Main Street &middot; Your city
+                    </td>
+                  </tr>
+                </tbody>
               </table>
-              <div style="height:40px;line-height:40px;">&nbsp;</div>
-              <div style="height:1px;background:#e4e4e7;font-size:0;line-height:0;">&nbsp;</div>
-              <p style="margin:24px 0 0;font-size:13px;line-height:21px;color:#71717a;">Questions? Reply to this email and a real person will help.</p>
             </td>
           </tr>
-        </table>
-        <p style="margin:18px 0 0;font-size:11px;line-height:18px;color:#a1a1aa;">Your company · 123 Main Street · Your City</p>
-      </td>
-    </tr>
-  </table>
-</body>
+        </tbody>
+      </table>
+    </div>
+  </body>
 </html>`,
 } as const;
+
+export const builtInTemplates = [builtInTemplate, changelogTemplate] as const;

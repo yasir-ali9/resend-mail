@@ -13,7 +13,7 @@ import {
   getActiveWorkspace,
   isMailboxInActiveWorkspace,
 } from "@/lib/server/workspace";
-import { builtInTemplate, BUILT_IN_TEMPLATE_ID } from "@/lib/template/built-in";
+import { builtInTemplates } from "@/lib/template/built-in";
 import {
   createBlankTemplateHtml,
   sanitizeTemplateHtml,
@@ -92,7 +92,10 @@ export async function cloneBuiltInTemplateAction(
 ): Promise<TemplateActionResult> {
   const workspace = await requireWorkspace();
   if (!workspace.ok) return workspace;
-  if (builtInId !== BUILT_IN_TEMPLATE_ID) {
+  const builtInTemplate = builtInTemplates.find(
+    (template) => template.id === builtInId,
+  );
+  if (!builtInTemplate) {
     return { ok: false, error: "That built-in template is unavailable." };
   }
 

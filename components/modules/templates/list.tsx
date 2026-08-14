@@ -25,7 +25,7 @@ import {
 } from "@/components/reusables/context-menu";
 import { Button } from "@/components/reusables/button";
 import { useToast } from "@/components/reusables/toast";
-import { builtInTemplate } from "@/lib/template/built-in";
+import { builtInTemplates } from "@/lib/template/built-in";
 import type { TemplateSummary } from "@/lib/template/types";
 import { cn } from "@/lib/utils";
 
@@ -117,9 +117,9 @@ export function TemplatesPanel({
     }
   }
 
-  async function cloneBuiltIn() {
-    setBusyId(builtInTemplate.id);
-    const result = await cloneBuiltInTemplateAction(builtInTemplate.id);
+  async function cloneBuiltIn(id: string) {
+    setBusyId(id);
+    const result = await cloneBuiltInTemplateAction(id);
     if (result.ok && result.template) {
       window.location.assign(`/edit/${result.template.id}`);
       return;
@@ -147,9 +147,7 @@ export function TemplatesPanel({
     setBusyId(template.id);
     const result = await deleteTemplateAction(template.id);
     if (result.ok) {
-      setTemplates((current) =>
-        current.filter(({ id }) => id !== template.id),
-      );
+      setTemplates((current) => current.filter(({ id }) => id !== template.id));
       toast("Template deleted.", "success");
     } else {
       toast(result.error || "Unable to delete the template.", "error");
@@ -158,44 +156,44 @@ export function TemplatesPanel({
   }
 
   function getMenuItems(card: TemplateCardData): ContextMenuItem[] {
-      if (card.builtIn) {
-        return [
-          {
-            id: "clone",
-            label: "Clone template",
-            icon: <Copy aria-hidden="true" className="size-3" />,
-            disabled: Boolean(busyId),
-            onClick: () => void cloneBuiltIn(),
-          },
-        ];
-      }
-
-      const template = card.template;
-      if (!template) return [];
-
+    if (card.builtIn) {
       return [
         {
-          id: "edit",
-          label: "Edit template",
-          icon: <Pencil aria-hidden="true" className="size-3" />,
-          onClick: () => window.location.assign(`/edit/${template.id}`),
-        },
-        {
-          id: "duplicate",
-          label: "Duplicate template",
+          id: "clone",
+          label: "Clone template",
           icon: <Copy aria-hidden="true" className="size-3" />,
           disabled: Boolean(busyId),
-          onClick: () => void duplicate(template.id),
-          separator: true,
-        },
-        {
-          id: "delete",
-          label: "Delete template",
-          icon: <Trash2 aria-hidden="true" className="size-3" />,
-          disabled: Boolean(busyId),
-          onClick: () => void remove(template),
+          onClick: () => void cloneBuiltIn(card.id),
         },
       ];
+    }
+
+    const template = card.template;
+    if (!template) return [];
+
+    return [
+      {
+        id: "edit",
+        label: "Edit template",
+        icon: <Pencil aria-hidden="true" className="size-3" />,
+        onClick: () => window.location.assign(`/edit/${template.id}`),
+      },
+      {
+        id: "duplicate",
+        label: "Duplicate template",
+        icon: <Copy aria-hidden="true" className="size-3" />,
+        disabled: Boolean(busyId),
+        onClick: () => void duplicate(template.id),
+        separator: true,
+      },
+      {
+        id: "delete",
+        label: "Delete template",
+        icon: <Trash2 aria-hidden="true" className="size-3" />,
+        disabled: Boolean(busyId),
+        onClick: () => void remove(template),
+      },
+    ];
   }
 
   function showContextMenu(
@@ -211,21 +209,21 @@ export function TemplatesPanel({
   }
 
   const yourCards: TemplateCardData[] = templates.map((template) => ({
+    id: template.id,
+    html: template.html,
+    name: template.name,
+    subline: formatRelativeEdit(template.updatedAt),
+    template,
+  }));
+  const builtForYouCards: TemplateCardData[] = builtInTemplates.map(
+    (template) => ({
       id: template.id,
       html: template.html,
       name: template.name,
-      subline: formatRelativeEdit(template.updatedAt),
-      template,
-    }));
-  const builtForYouCards: TemplateCardData[] = [
-    {
-      id: builtInTemplate.id,
-      html: builtInTemplate.html,
-      name: builtInTemplate.name,
       subline: "Built-in sample",
       builtIn: true,
-    },
-  ];
+    }),
+  );
   const sections = [
     ...(category === "both" || category === "yours"
       ? [{ id: "yours", title: "Your templates", cards: yourCards }]
@@ -328,7 +326,7 @@ export function TemplatesPanel({
                     onContextMenu={(event) => showContextMenu(card, event)}
                     onOpen={() => {
                       if (card.builtIn) {
-                        void cloneBuiltIn();
+                        void cloneBuiltIn(card.id);
                       } else {
                         window.location.assign(`/edit/${card.id}`);
                       }
@@ -448,9 +446,7 @@ function TemplateCard({
         <h2 className="truncate text-[12px] font-medium text-fg-40">
           {card.name}
         </h2>
-        <p className="mt-0.5 truncate text-[10px] text-fg-70">
-          {card.subline}
-        </p>
+        <p className="mt-0.5 truncate text-[10px] text-fg-70">{card.subline}</p>
         <button
           type="button"
           aria-label={`Open ${card.name} menu`}
@@ -533,19 +529,13 @@ function TemplatePreview({
       previewDocument.documentElement.scrollHeight,
       previewDocument.body?.scrollHeight ?? 0,
     );
-    const maximumScroll = Math.max(
-      0,
-      documentHeight - frameWindow.innerHeight,
-    );
+    const maximumScroll = Math.max(0, documentHeight - frameWindow.innerHeight);
     if (maximumScroll < 12) return;
 
     frameWindow.scrollTo(0, 0);
     const remainingDistance = maximumScroll;
     const startedAt = performance.now();
-    const duration = Math.max(
-      1_500,
-      Math.min(6_000, remainingDistance * 9),
-    );
+    const duration = Math.max(1_500, Math.min(6_000, remainingDistance * 9));
 
     function step(timestamp: number) {
       const progress = Math.min(1, (timestamp - startedAt) / duration);
