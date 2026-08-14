@@ -21,6 +21,7 @@ import {
   ContextMenu,
   type ContextMenuItem,
 } from "@/components/reusables/context-menu";
+import type { Mailbox } from "@/lib/mailbox/types";
 import type { MailTemplate } from "@/lib/template/types";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,8 @@ import { createElement } from "./elements";
 import { Field, inputClass, Properties } from "./properties";
 import { buildLayerTree } from "./layer-tree";
 import { LayersPanel } from "./layers";
+import { PreviewResizeHandle } from "./resize-handle";
+import { SendPreview } from "./send-preview";
 import { getArrowMove, isDeleteShortcut } from "./shortcuts";
 import { TopPane } from "./top-pane";
 import type {
@@ -46,12 +49,16 @@ import type {
   SaveStatus,
   SelectedElement,
   ViewMode,
+  WorkspaceMode,
 } from "./types";
+import { useTemplateSend } from "./use-template-send";
 
 export function TemplateEditor({
   initialTemplate,
+  mailboxes,
 }: {
   initialTemplate: MailTemplate;
+  mailboxes: Mailbox[];
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const previewCanvasRef = useRef<HTMLDivElement>(null);
@@ -73,6 +80,8 @@ export function TemplateEditor({
   const [subject, setSubject] = useState(initialTemplate.subject);
   const [html, setHtml] = useState(initialTemplate.html);
   const [previewHtml, setPreviewHtml] = useState(initialTemplate.html);
+  const [sendHtml, setSendHtml] = useState(initialTemplate.html);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("edit");
   const [selected, setSelected] = useState<SelectedElement>();
   const [selectedLayerId, setSelectedLayerId] = useState<string>();
   const [layers, setLayers] = useState<LayerNode[]>([]);
@@ -91,6 +100,10 @@ export function TemplateEditor({
     maxWidth: number;
   } | null>(null);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const templateSend = useTemplateSend({
+    mailboxes,
+    templateId: initialTemplate.id,
+  });
 
   const save = useCallback(
     async (nextName: string, nextSubject: string, nextHtml: string) => {
@@ -113,6 +126,7 @@ export function TemplateEditor({
         html: result.template.html,
       };
       setSaveStatus("saved");
+      return result.template;
     },
     [initialTemplate.id],
   );
@@ -409,6 +423,21 @@ export function TemplateEditor({
     setViewMode("preview");
   }
 
+  async function enterSendMode() {
+    finishInlineEditing();
+    const nextHtml = viewMode === "preview" ? serializePreview() : html;
+    const savedTemplate = await save(name, subject, nextHtml);
+    if (!savedTemplate) return;
+
+    clearElementSelection();
+    setName(savedTemplate.name);
+    setSubject(savedTemplate.subject);
+    setHtml(savedTemplate.html);
+    setPreviewHtml(savedTemplate.html);
+    setSendHtml(savedTemplate.html);
+    setWorkspaceMode("send");
+  }
+
   function insertElement(
     kind: "text" | "button" | "image" | "divider" | "section",
   ) {
@@ -470,7 +499,9 @@ export function TemplateEditor({
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     const preview = event.currentTarget.parentElement?.parentElement;
-    const canvas = previewCanvasRef.current;
+    const canvas =
+      event.currentTarget.closest<HTMLElement>("[data-preview-canvas]") ??
+      previewCanvasRef.current;
     const canvasStyle = canvas ? window.getComputedStyle(canvas) : undefined;
     const horizontalPadding = canvasStyle
       ? Number.parseFloat(canvasStyle.paddingLeft) +
@@ -556,6 +587,9 @@ export function TemplateEditor({
         name={name}
         onNameChange={setName}
         saveStatus={saveStatus}
+        sendDisabled={templateSend.sending || !templateSend.mailboxId}
+        sending={templateSend.sending}
+        workspaceMode={workspaceMode}
         viewMode={viewMode}
         previewSize={previewSize}
         hasSelection={Boolean(selected)}
@@ -565,6 +599,8 @@ export function TemplateEditor({
           move: moveSelected,
           duplicate: duplicateSelected,
           delete: removeSelected,
+          edit: () => setWorkspaceMode("edit"),
+          previewAndSend: () => void enterSendMode(),
           applySource,
           selectPreviewSize: (size) => {
             setPreviewSize(size);
@@ -578,12 +614,6 @@ export function TemplateEditor({
             }
             setViewMode(mode);
           },
-          save: () =>
-            void save(
-              name,
-              subject,
-              viewMode === "preview" ? serializePreview() : html,
-            ),
           toggleProperties: () => setPropertiesOpen((open) => !open),
           toggleLayers: () => {
             if (layersOpen) hoverLayer();
@@ -592,155 +622,166 @@ export function TemplateEditor({
         }}
       />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {viewMode === "preview" && layersOpen ? (
-          <LayersPanel
-            nodes={layers}
-            selectedId={selectedLayerId}
-            onClose={() => {
-              hoverLayer();
-              setLayersOpen(false);
-            }}
-            onSelect={(node) => selectElement(node.element)}
-            onFocus={focusLayer}
-            onHover={hoverLayer}
-            onContextMenu={(_node, position) =>
-              setElementContextMenu({ position })
-            }
-          />
-        ) : null}
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div
-            ref={previewCanvasRef}
-            onPointerDown={(event) => {
-              if (
-                viewMode === "preview" &&
-                event.target === event.currentTarget
-              ) {
-                clearElementSelection();
+      {workspaceMode === "send" ? (
+        <SendPreview
+          controller={templateSend}
+          html={sendHtml}
+          mailboxes={mailboxes}
+          name={name}
+          subject={subject}
+          onSubjectChange={setSubject}
+          previewWidth={previewWidth}
+          previewResizing={previewResizing}
+          resizeHandlers={{
+            onPointerDown: beginPreviewResize,
+            onPointerMove: resizePreview,
+            onPointerUp: finishPreviewResize,
+            onPointerCancel: finishPreviewResize,
+          }}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {viewMode === "preview" && layersOpen ? (
+            <LayersPanel
+              nodes={layers}
+              selectedId={selectedLayerId}
+              onClose={() => {
+                hoverLayer();
+                setLayersOpen(false);
+              }}
+              onSelect={(node) => selectElement(node.element)}
+              onFocus={focusLayer}
+              onHover={hoverLayer}
+              onContextMenu={(_node, position) =>
+                setElementContextMenu({ position })
               }
-            }}
-            onScroll={() => setElementContextMenu(undefined)}
-            className={cn(
-              "min-h-0 flex-1 overflow-auto bg-bk-80",
-              viewMode === "preview" && "px-3 sm:px-6",
-            )}
-          >
-            {viewMode === "source" ? (
-              <textarea
-                aria-label="Template HTML source"
-                spellCheck={false}
-                value={html}
-                onChange={(event) => setHtml(event.target.value)}
-                className="h-full w-full resize-none bg-bk-100 p-4 font-mono text-[11px] leading-5 text-fg-40 outline-none"
-              />
-            ) : (
-              <div
-                style={{
-                  width: previewWidth,
-                  height: previewDocumentHeight || "100%",
-                }}
-                className={cn(
-                  "relative mx-auto min-h-full max-w-full border-x border-bd-30 bg-white shadow-sm",
-                  !previewResizing && "transition-[width]",
-                )}
-              >
-                <div className="pointer-events-none sticky top-1/2 z-20 h-0 w-full">
-                  <button
-                    type="button"
-                    aria-label="Resize email preview"
-                    title={`${previewWidth}px wide`}
+            />
+          ) : null}
+          <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div
+              data-preview-canvas
+              ref={previewCanvasRef}
+              onPointerDown={(event) => {
+                if (
+                  viewMode === "preview" &&
+                  event.target === event.currentTarget
+                ) {
+                  clearElementSelection();
+                }
+              }}
+              onScroll={() => setElementContextMenu(undefined)}
+              className={cn(
+                "min-h-0 flex-1 overflow-auto bg-bk-80",
+                viewMode === "preview" && "px-3 sm:px-6",
+              )}
+            >
+              {viewMode === "source" ? (
+                <textarea
+                  aria-label="Template HTML source"
+                  spellCheck={false}
+                  value={html}
+                  onChange={(event) => setHtml(event.target.value)}
+                  className="h-full w-full resize-none bg-bk-100 p-4 font-mono text-[11px] leading-5 text-fg-40 outline-none"
+                />
+              ) : (
+                <div
+                  style={{
+                    width: previewWidth,
+                    height: previewDocumentHeight || "100%",
+                  }}
+                  className={cn(
+                    "relative mx-auto min-h-full max-w-full border-x border-bd-30 bg-white shadow-sm",
+                    !previewResizing && "transition-[width]",
+                  )}
+                >
+                  <PreviewResizeHandle
+                    width={previewWidth}
+                    resizing={previewResizing}
                     onPointerDown={beginPreviewResize}
                     onPointerMove={resizePreview}
                     onPointerUp={finishPreviewResize}
                     onPointerCancel={finishPreviewResize}
-                    className="group/resize pointer-events-auto absolute top-0 -right-5 hidden h-20 w-6 -translate-y-1/2 cursor-ew-resize touch-none place-items-center md:grid"
-                  >
-                    <span
-                      className={cn(
-                        "h-12 w-0.5 rounded-full bg-fg-70/80 transition-[height,background-color] group-hover/resize:h-14 group-hover/resize:bg-fg-50",
-                        previewResizing && "h-14 bg-fg-40",
-                      )}
-                    />
-                  </button>
+                  />
+                  <iframe
+                    key={previewHtml}
+                    ref={iframeRef}
+                    title={`Editing ${name}`}
+                    sandbox="allow-same-origin"
+                    referrerPolicy="no-referrer"
+                    scrolling="no"
+                    srcDoc={previewHtml}
+                    onLoad={bindPreview}
+                    className="block w-full border-0 bg-white"
+                  />
                 </div>
-                <iframe
-                  key={previewHtml}
-                  ref={iframeRef}
-                  title={`Editing ${name}`}
-                  sandbox="allow-same-origin"
-                  referrerPolicy="no-referrer"
-                  scrolling="no"
-                  srcDoc={previewHtml}
-                  onLoad={bindPreview}
-                  className="block w-full border-0 bg-white"
-                />
-              </div>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
 
-        {propertiesOpen ? (
-          <button
-            type="button"
-            aria-label="Close properties"
-            onClick={() => setPropertiesOpen(false)}
-            className="fixed inset-0 z-30 bg-black/25 md:hidden"
-          />
-        ) : null}
-        <aside
-          className={cn(
-            "relative z-40 flex w-[300px] shrink-0 flex-col border-l border-bd-30 bg-bk-90 transition-transform max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:shadow-xl",
-            propertiesOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
-          )}
-        >
-          <button
-            type="button"
-            aria-label="Close properties"
-            onClick={() => setPropertiesOpen(false)}
-            className="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-md text-fg-70 hover:bg-bk-70 md:hidden"
-          >
-            ×
-          </button>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 max-md:pt-11">
-            <Field label="Email subject">
-              <input
-                value={subject}
-                maxLength={998}
-                onChange={(event) => setSubject(event.target.value)}
-                className={inputClass}
-                placeholder="Subject line"
-              />
-            </Field>
-            <div className="my-4 h-px bg-bd-30" />
-            {selected ? (
-              <Properties selected={selected} mutate={mutateSelected} />
-            ) : (
-              <div className="grid min-h-52 place-items-center text-center">
-                <div>
-                  <MousePointer2 className="mx-auto size-5 text-fg-70" />
-                  <p className="mt-2 text-[11px] text-fg-60">
-                    Select an element in the email
-                  </p>
-                  <p className="mt-1 text-[10px] leading-4 text-fg-70">
-                    Its content, colors, spacing, links, and sizing will appear
-                    here.
-                  </p>
-                </div>
-              </div>
+          {propertiesOpen ? (
+            <button
+              type="button"
+              aria-label="Close properties"
+              onClick={() => setPropertiesOpen(false)}
+              className="fixed inset-0 z-30 bg-black/25 md:hidden"
+            />
+          ) : null}
+          <aside
+            className={cn(
+              "relative z-40 flex w-[300px] shrink-0 flex-col border-l border-bd-30 bg-bk-90 transition-transform max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:shadow-xl",
+              propertiesOpen
+                ? "max-md:translate-x-0"
+                : "max-md:translate-x-full",
             )}
-          </div>
-        </aside>
-        {elementContextMenu ? (
-          <ContextMenu
-            items={contextMenuItems}
-            isOpen
-            position={elementContextMenu.position}
-            variant="elevated"
-            onClose={() => setElementContextMenu(undefined)}
-          />
-        ) : null}
-      </div>
+          >
+            <button
+              type="button"
+              aria-label="Close properties"
+              onClick={() => setPropertiesOpen(false)}
+              className="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-md text-fg-70 hover:bg-bk-70 md:hidden"
+            >
+              ×
+            </button>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 max-md:pt-11">
+              <Field label="Email subject">
+                <input
+                  value={subject}
+                  maxLength={998}
+                  onChange={(event) => setSubject(event.target.value)}
+                  className={inputClass}
+                  placeholder="Subject line"
+                />
+              </Field>
+              <div className="my-4 h-px bg-bd-30" />
+              {selected ? (
+                <Properties selected={selected} mutate={mutateSelected} />
+              ) : (
+                <div className="grid min-h-52 place-items-center text-center">
+                  <div>
+                    <MousePointer2 className="mx-auto size-5 text-fg-70" />
+                    <p className="mt-2 text-[11px] text-fg-60">
+                      Select an element in the email
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-fg-70">
+                      Its content, colors, spacing, links, and sizing will
+                      appear here.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+          {elementContextMenu ? (
+            <ContextMenu
+              items={contextMenuItems}
+              isOpen
+              position={elementContextMenu.position}
+              variant="elevated"
+              onClose={() => setElementContextMenu(undefined)}
+            />
+          ) : null}
+        </div>
+      )}
     </main>
   );
 }

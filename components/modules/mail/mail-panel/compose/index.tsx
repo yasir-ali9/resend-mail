@@ -9,11 +9,7 @@ import {
   Send,
   X,
 } from "lucide-react";
-import type {
-  ChangeEventHandler,
-  FormEventHandler,
-  RefObject,
-} from "react";
+import type { ChangeEventHandler, FormEventHandler, RefObject } from "react";
 
 import { Button } from "@/components/reusables/button";
 import { ResizablePanel } from "@/components/reusables/resizable";
@@ -59,6 +55,7 @@ export interface ComposeActions {
   discard: () => void;
   dismiss: () => void | Promise<void>;
   invalid: (message: string) => void;
+  hideRecipient: (group: "cc" | "bcc") => void;
   removeAttachment: (index: number) => void;
   removeForwardedAttachment: (index: number) => void;
   selectAttachments: ChangeEventHandler<HTMLInputElement>;
@@ -82,12 +79,7 @@ interface ModeButtonProps {
   onClick: () => void;
 }
 
-function ModeButton({
-  active,
-  icon: Icon,
-  label,
-  onClick,
-}: ModeButtonProps) {
+function ModeButton({ active, icon: Icon, label, onClick }: ModeButtonProps) {
   return (
     <Tooltip content={label} position="bottom">
       <button
@@ -139,24 +131,24 @@ function Surface({
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <div className="hidden items-center gap-0.5 md:flex">
-          <ModeButton
-            active={mode === "floating"}
-            icon={PictureInPicture2}
-            label="Floating compose"
-            onClick={() => actions.changeMode("floating")}
-          />
-          <ModeButton
-            active={mode === "full"}
-            icon={Maximize2}
-            label="Full-screen compose"
-            onClick={() => actions.changeMode("full")}
-          />
-          <ModeButton
-            active={mode === "drawer"}
-            icon={PanelRight}
-            label="Right drawer"
-            onClick={() => actions.changeMode("drawer")}
-          />
+            <ModeButton
+              active={mode === "floating"}
+              icon={PictureInPicture2}
+              label="Floating compose"
+              onClick={() => actions.changeMode("floating")}
+            />
+            <ModeButton
+              active={mode === "full"}
+              icon={Maximize2}
+              label="Full-screen compose"
+              onClick={() => actions.changeMode("full")}
+            />
+            <ModeButton
+              active={mode === "drawer"}
+              icon={PanelRight}
+              label="Right drawer"
+              onClick={() => actions.changeMode("drawer")}
+            />
           </div>
           <Tooltip content="Close compose" position="bottom">
             <button
@@ -171,10 +163,7 @@ function Surface({
         </div>
       </header>
 
-      <form
-        onSubmit={actions.submit}
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <form onSubmit={actions.submit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="flex items-center gap-3 border-b border-bd-40 px-4 py-2 text-[11px] text-fg-70">
             <span className="w-12 shrink-0">From</span>
@@ -219,6 +208,7 @@ function Surface({
               label="Cc"
               values={value.cc}
               onChange={(values) => actions.changeRecipients("cc", values)}
+              onDismissEmpty={() => actions.hideRecipient("cc")}
               onInvalid={actions.invalid}
             />
           ) : null}
@@ -230,6 +220,7 @@ function Surface({
               label="Bcc"
               values={value.bcc}
               onChange={(values) => actions.changeRecipients("bcc", values)}
+              onDismissEmpty={() => actions.hideRecipient("bcc")}
               onInvalid={actions.invalid}
             />
           ) : null}
@@ -242,9 +233,7 @@ function Surface({
               type="text"
               required
               value={value.subject}
-              onChange={(event) =>
-                actions.changeSubject(event.target.value)
-              }
+              onChange={(event) => actions.changeSubject(event.target.value)}
               placeholder="Subject"
               className="min-w-0 flex-1 bg-transparent text-[12px] text-fg-40 outline-none placeholder:text-fg-70"
             />
@@ -305,10 +294,7 @@ function Surface({
             </button>
           </Tooltip>
           {status.message ? (
-            <span
-              role="status"
-              className="ml-auto text-[10px] text-fg-70"
-            >
+            <span role="status" className="ml-auto text-[10px] text-fg-70">
               {status.message}
             </span>
           ) : null}

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { TemplateEditor } from "@/components/modules/templates/editor";
+import { listMailboxesWithVerification } from "@/lib/mailbox/verification";
 import { getActiveWorkspace } from "@/lib/server/workspace";
 import { getTemplate } from "@/lib/template/repository";
 
@@ -15,12 +16,17 @@ export default async function EditTemplatePage({
   ]);
   if (!workspace) redirect("/setup");
 
-  const template = await getTemplate(
-    templateId,
-    workspace.connection.id,
-    workspace.domain.id,
-  );
+  const [template, allMailboxes] = await Promise.all([
+    getTemplate(templateId, workspace.connection.id, workspace.domain.id),
+    listMailboxesWithVerification(),
+  ]);
   if (!template) notFound();
 
-  return <TemplateEditor initialTemplate={template} />;
+  const mailboxes = allMailboxes.filter(
+    (mailbox) =>
+      mailbox.connectionId === workspace.connection.id &&
+      mailbox.domainId === workspace.domain.id,
+  );
+
+  return <TemplateEditor initialTemplate={template} mailboxes={mailboxes} />;
 }

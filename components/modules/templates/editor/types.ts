@@ -1,5 +1,6 @@
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 export type ViewMode = "preview" | "source";
+export type WorkspaceMode = "edit" | "send";
 export type PreviewSize = "desktop" | "mobile";
 export type ElementKind = "text" | "button" | "image" | "divider" | "section";
 export type MoveDirection = "up" | "down";

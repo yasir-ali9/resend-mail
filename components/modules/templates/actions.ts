@@ -2,9 +2,17 @@
 
 import { randomUUID } from "node:crypto";
 
-import { getEmail } from "@/lib/email/repository";
+import { extractEmailAddress, isValidEmailAddress } from "@/lib/email/address";
+import { getEmail, saveEmail } from "@/lib/email/repository";
+import { MAX_EMAIL_RECIPIENTS, type ActionResult } from "@/lib/email/types";
+import { getMailbox } from "@/lib/mailbox/repository";
+import { formatMailbox } from "@/lib/mailbox/types";
 import { isAuthenticated } from "@/lib/server/auth";
-import { getActiveWorkspace } from "@/lib/server/workspace";
+import { getResendClient } from "@/lib/server/resend";
+import {
+  getActiveWorkspace,
+  isMailboxInActiveWorkspace,
+} from "@/lib/server/workspace";
 import { builtInTemplate, BUILT_IN_TEMPLATE_ID } from "@/lib/template/built-in";
 import {
   createBlankTemplateHtml,
@@ -19,7 +27,8 @@ import {
 } from "@/lib/template/repository";
 import type { TemplateActionResult } from "@/lib/template/types";
 
-const templateIdPattern = /^(?:template_)?[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const templateIdPattern =
+  /^(?:template_)?[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_NAME_LENGTH = 120;
 const MAX_SUBJECT_LENGTH = 998;
 const MAX_TEMPLATE_HTML_LENGTH = 2_000_000;
@@ -57,11 +66,9 @@ export async function importHtmlTemplateAction(input: {
     return { ok: false, error: "Template HTML is too large." };
   }
 
-  const fileName = input.fileName
-    .split(/[\\/]/)
-    .at(-1)
-    ?.trim()
-    .slice(0, 255) || "Imported template.html";
+  const fileName =
+    input.fileName.split(/[\\/]/).at(-1)?.trim().slice(0, 255) ||
+    "Imported template.html";
   const name =
     cleanName(fileName.replace(/\.html?$/i, "")) || "Imported template";
   const html = sanitizeTemplateHtml(input.html);
@@ -151,7 +158,8 @@ export async function cloneEmailAsTemplateAction(
   }
 
   const html = sanitizeTemplateHtml(
-    email.html?.trim() || `<p>${escapeHtml(email.text).replaceAll("\n", "<br>")}</p>`,
+    email.html?.trim() ||
+      `<p>${escapeHtml(email.text).replaceAll("\n", "<br>")}</p>`,
   );
   const template = await createTemplate({
     id: createTemplateId(),
@@ -203,7 +211,96 @@ export async function saveTemplateAction(input: {
     : { ok: false, error: "Template not found." };
 }
 
-export async function deleteTemplateAction(id: string): Promise<TemplateActionResult> {
+export async function sendTemplateEmailAction(input: {
+  templateId: string;
+  mailboxId: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+}): Promise<ActionResult> {
+  if (!(await isAuthenticated())) {
+    return { ok: false, error: "Your session has expired. Sign in again." };
+  }
+  if (!templateIdPattern.test(input.templateId)) {
+    return { ok: false, error: "Template ID is invalid." };
+  }
+
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return { ok: false, error: "Choose a workspace first." };
+
+  const [template, mailbox] = await Promise.all([
+    getTemplate(input.templateId, workspace.connection.id, workspace.domain.id),
+    getMailbox(input.mailboxId),
+  ]);
+  if (!template) return { ok: false, error: "Template not found." };
+  if (!mailbox || !(await isMailboxInActiveWorkspace(mailbox))) {
+    return { ok: false, error: "Choose a mailbox first." };
+  }
+
+  const recipients = normalizeRecipientGroups(input);
+  const allRecipients = [...recipients.to, ...recipients.cc, ...recipients.bcc];
+  if (!recipients.to.length) {
+    return { ok: false, error: "Add at least one recipient." };
+  }
+  if (!allRecipients.every(isValidEmailAddress)) {
+    return { ok: false, error: "Enter valid recipient addresses." };
+  }
+  if (allRecipients.length > MAX_EMAIL_RECIPIENTS) {
+    return {
+      ok: false,
+      error: `You can send to up to ${MAX_EMAIL_RECIPIENTS} recipients.`,
+    };
+  }
+
+  const subject = input.subject.trim().slice(0, MAX_SUBJECT_LENGTH);
+  if (!subject) return { ok: false, error: "Subject is required." };
+
+  const resend = await getResendClient(mailbox.connectionId);
+  const { data, error } = await resend.emails.send({
+    from: formatMailbox(mailbox),
+    to: recipients.to,
+    cc: recipients.cc.length ? recipients.cc : undefined,
+    bcc: recipients.bcc.length ? recipients.bcc : undefined,
+    subject,
+    text: template.text,
+    html: template.html,
+  });
+  if (error || !data) {
+    return { ok: false, error: error?.message || "Unable to send email." };
+  }
+
+  try {
+    const sentAt = new Date().toISOString();
+    await saveEmail({
+      id: data.id,
+      connectionId: mailbox.connectionId,
+      direction: "outbound",
+      from: formatMailbox(mailbox),
+      to: recipients.to,
+      cc: recipients.cc,
+      bcc: recipients.bcc,
+      subject,
+      text: template.text,
+      html: template.html,
+      attachments: [],
+      deliveryStatus: "queued",
+      deliveryUpdatedAt: sentAt,
+      createdAt: sentAt,
+    });
+  } catch (databaseError) {
+    console.error(
+      "Template email sent but could not be saved locally.",
+      databaseError,
+    );
+  }
+
+  return { ok: true };
+}
+
+export async function deleteTemplateAction(
+  id: string,
+): Promise<TemplateActionResult> {
   const workspace = await requireWorkspace();
   if (!workspace.ok) return workspace;
   if (!templateIdPattern.test(id)) {
@@ -215,9 +312,7 @@ export async function deleteTemplateAction(id: string): Promise<TemplateActionRe
     workspace.connectionId,
     workspace.domainId,
   );
-  return deleted
-    ? { ok: true }
-    : { ok: false, error: "Template not found." };
+  return deleted ? { ok: true } : { ok: false, error: "Template not found." };
 }
 
 function createTemplateId() {
@@ -226,6 +321,28 @@ function createTemplateId() {
 
 function cleanName(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_NAME_LENGTH);
+}
+
+function normalizeRecipientGroups(input: {
+  to: string[];
+  cc: string[];
+  bcc: string[];
+}) {
+  const seen = new Set<string>();
+  const normalize = (values: string[]) =>
+    values.reduce<string[]>((recipients, value) => {
+      const address = extractEmailAddress(value);
+      if (!address || seen.has(address)) return recipients;
+      seen.add(address);
+      recipients.push(address);
+      return recipients;
+    }, []);
+
+  return {
+    to: normalize(input.to),
+    cc: normalize(input.cc),
+    bcc: normalize(input.bcc),
+  };
 }
 
 async function requireWorkspace(): Promise<

@@ -9,10 +9,7 @@ import {
   type FormEvent,
 } from "react";
 
-import {
-  extractEmailAddress,
-  uniqueEmailAddresses,
-} from "@/lib/email/address";
+import { extractEmailAddress, uniqueEmailAddresses } from "@/lib/email/address";
 import { plainTextToHtml } from "@/lib/email/html";
 import type { MailDraft } from "@/lib/draft/types";
 import {
@@ -25,10 +22,7 @@ import {
 import type { Mailbox } from "@/lib/mailbox/types";
 
 import { sendEmailAction } from "./actions";
-import {
-  deleteDraftAction,
-  saveDraftAction,
-} from "../draft/actions";
+import { deleteDraftAction, saveDraftAction } from "../draft/actions";
 import type { ComposeRouteMode, HomeView } from "../../types";
 import type { ReplyMode } from "../thread";
 import type { MailboxView } from "../thread/state";
@@ -125,8 +119,7 @@ export function useCompose({
   ]);
 
   useEffect(() => {
-    const enteredCompose =
-      Boolean(composeMode) && !wasComposeOpen.current;
+    const enteredCompose = Boolean(composeMode) && !wasComposeOpen.current;
     wasComposeOpen.current = Boolean(composeMode);
 
     if (!composeMode) {
@@ -134,16 +127,13 @@ export function useCompose({
       return;
     }
 
-    const nextSignatureBlock = createSignatureBlock(
-      selectedMailbox?.signature,
-    );
+    const nextSignatureBlock = createSignatureBlock(selectedMailbox?.signature);
 
     if (enteredCompose) {
       appliedSignatureBlock.current = nextSignatureBlock;
       setBody((currentBody) => currentBody || nextSignatureBlock);
       setBodyHtml(
-        (currentHtml) =>
-          currentHtml || plainTextToHtml(nextSignatureBlock),
+        (currentHtml) => currentHtml || plainTextToHtml(nextSignatureBlock),
       );
       return;
     }
@@ -169,18 +159,12 @@ export function useCompose({
   }, [activeView, composeMode, selectedMailbox?.signature]);
 
   useEffect(() => {
-    if (
-      !composeMode ||
-      !selectedMailbox ||
-      sending ||
-      !hasDraftContent()
-    ) {
+    if (!composeMode || !selectedMailbox || sending || !hasDraftContent()) {
       return;
     }
 
     const timeout = window.setTimeout(() => {
-      const draftId =
-        activeDraftId || `draft_${crypto.randomUUID()}`;
+      const draftId = activeDraftId || `draft_${crypto.randomUUID()}`;
       const sequence = ++draftSaveSequence.current;
       if (!activeDraftId) {
         setActiveDraftId(draftId);
@@ -240,10 +224,7 @@ export function useCompose({
     toRecipients,
   ]);
 
-  function updateRecipients(
-    group: RecipientGroup,
-    values: string[],
-  ) {
+  function updateRecipients(group: RecipientGroup, values: string[]) {
     const groups = {
       to: toRecipients,
       cc: ccRecipients,
@@ -283,9 +264,7 @@ export function useCompose({
   }
 
   function getReplyRecipients(email: MailboxEmail, replyMode: ReplyMode) {
-    const replyAddress = extractEmailAddress(
-      email.replyTo[0] ?? email.from,
-    );
+    const replyAddress = extractEmailAddress(email.replyTo[0] ?? email.from);
 
     if (replyMode === "reply") {
       return { to: [replyAddress], cc: [] };
@@ -307,9 +286,7 @@ export function useCompose({
 
   function startReply(email: MailboxEmail, replyMode: ReplyMode) {
     const recipients = getReplyRecipients(email, replyMode);
-    const signatureBlock = createSignatureBlock(
-      selectedMailbox?.signature,
-    );
+    const signatureBlock = createSignatureBlock(selectedMailbox?.signature);
 
     setToRecipients(recipients.to);
     setCcRecipients(recipients.cc);
@@ -341,13 +318,9 @@ export function useCompose({
   }
 
   function startForward(email: MailboxEmail) {
-    const signatureBlock = createSignatureBlock(
-      selectedMailbox?.signature,
-    );
+    const signatureBlock = createSignatureBlock(selectedMailbox?.signature);
     const originalAttachments = (email.attachments ?? []).filter(
-      (
-        attachment,
-      ): attachment is EmailAttachment & { id: string } =>
+      (attachment): attachment is EmailAttachment & { id: string } =>
         Boolean(attachment.id),
     );
     setToRecipients([]);
@@ -360,8 +333,7 @@ export function useCompose({
         ? email.subject
         : `Fwd: ${email.subject}`,
     );
-    const forwardedBody =
-      `${signatureBlock}${createForwardedMessage(email)}`;
+    const forwardedBody = `${signatureBlock}${createForwardedMessage(email)}`;
     setBody(forwardedBody);
     setBodyHtml(plainTextToHtml(forwardedBody));
     appliedSignatureBlock.current = signatureBlock;
@@ -373,9 +345,7 @@ export function useCompose({
     setDraftSaveStatus("idle");
     const unavailableAttachmentCount =
       (email.attachments?.length ?? 0) - originalAttachments.length;
-    const limitMessage = getAttachmentLimitMessage(
-      originalAttachments,
-    );
+    const limitMessage = getAttachmentLimitMessage(originalAttachments);
 
     setSendStatus(
       limitMessage ||
@@ -488,8 +458,7 @@ export function useCompose({
       return;
     }
 
-    const draftId =
-      activeDraftId || `draft_${crypto.randomUUID()}`;
+    const draftId = activeDraftId || `draft_${crypto.randomUUID()}`;
     const sequence = ++draftSaveSequence.current;
 
     setActiveDraftId(draftId);
@@ -530,9 +499,7 @@ export function useCompose({
   }
 
   function openDraft(draft: MailDraft) {
-    const signatureBlock = createSignatureBlock(
-      selectedMailbox?.signature,
-    );
+    const signatureBlock = createSignatureBlock(selectedMailbox?.signature);
 
     draftSaveSequence.current += 1;
     setActiveDraftId(draft.id);
@@ -588,10 +555,7 @@ export function useCompose({
     );
     setAttachments(nextAttachments);
     setSendStatus(
-      getAttachmentLimitMessage([
-        ...forwardedAttachments,
-        ...nextAttachments,
-      ]),
+      getAttachmentLimitMessage([...forwardedAttachments, ...nextAttachments]),
     );
   }
 
@@ -690,6 +654,13 @@ export function useCompose({
     changeSubject: setSubject,
     discard,
     dismiss,
+    hideRecipient: (group) => {
+      if (group === "cc" && ccRecipients.length === 0) {
+        setShowCc(false);
+      } else if (group === "bcc" && bccRecipients.length === 0) {
+        setShowBcc(false);
+      }
+    },
     invalid: setSendStatus,
     removeAttachment,
     removeForwardedAttachment,

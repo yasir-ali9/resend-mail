@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Minus, X } from "lucide-react";
 import {
   useState,
   type ClipboardEvent,
@@ -8,10 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  extractEmailAddress,
-  isValidEmailAddress,
-} from "@/lib/email/address";
+import { extractEmailAddress, isValidEmailAddress } from "@/lib/email/address";
 
 interface RecipientFieldProps {
   id: string;
@@ -19,6 +16,7 @@ interface RecipientFieldProps {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
+  onDismissEmpty?: () => void;
   onInvalid: (message: string) => void;
   autoFocus?: boolean;
   children?: ReactNode;
@@ -30,6 +28,7 @@ export function RecipientField({
   label,
   values,
   onChange,
+  onDismissEmpty,
   onInvalid,
   autoFocus = false,
   children,
@@ -103,19 +102,14 @@ export function RecipientField({
 
   return (
     <div className="flex min-h-10 items-start gap-3 border-b border-bd-40 px-4 py-1.5">
-      <label
-        htmlFor={id}
-        className="w-12 shrink-0 pt-1 text-[11px] text-fg-70"
-      >
+      <label htmlFor={id} className="w-12 shrink-0 pt-1 text-[11px] text-fg-70">
         {label}
       </label>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         {values.map((address) => (
           <span key={address} className="contents">
             <input type="hidden" name={name} value={address} />
-            <span
-              className="flex h-6 max-w-full items-center gap-1 rounded-md bg-bk-60 px-2 text-[11px] text-fg-40"
-            >
+            <span className="flex h-6 max-w-full items-center gap-1 rounded-md bg-bk-60 px-2 text-[11px] text-fg-40">
               <span className="truncate">{address}</span>
               <button
                 type="button"
@@ -152,6 +146,17 @@ export function RecipientField({
           className="h-6 min-w-36 flex-1 bg-transparent text-[12px] text-fg-40 outline-none placeholder:text-fg-70"
         />
       </div>
+      {onDismissEmpty && !values.length && !draft ? (
+        <button
+          type="button"
+          onClick={onDismissEmpty}
+          aria-label={`Hide ${label}`}
+          title={`Hide ${label}`}
+          className="mt-0.5 grid size-5 shrink-0 cursor-pointer place-items-center rounded text-fg-70 transition-colors hover:bg-bk-70 hover:text-fg-30 focus-visible:ring-1 focus-visible:ring-ac-02"
+        >
+          <Minus aria-hidden="true" className="size-3.5" />
+        </button>
+      ) : null}
       {children ? (
         <div className="flex shrink-0 items-center gap-2 pt-1">{children}</div>
       ) : null}
