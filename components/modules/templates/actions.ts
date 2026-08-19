@@ -4,7 +4,13 @@ import { randomUUID } from "node:crypto";
 
 import { extractEmailAddress, isValidEmailAddress } from "@/lib/email/address";
 import { getEmail, saveEmail } from "@/lib/email/repository";
-import { MAX_EMAIL_RECIPIENTS, type ActionResult } from "@/lib/email/types";
+import {
+  MAX_ATTACHMENT_COUNT,
+  MAX_EMAIL_RECIPIENTS,
+  MAX_TOTAL_ATTACHMENT_BYTES,
+  type ActionResult,
+  type EmailAttachment,
+} from "@/lib/email/types";
 import { getMailbox } from "@/lib/mailbox/repository";
 import { formatMailbox } from "@/lib/mailbox/types";
 import { isAuthenticated } from "@/lib/server/auth";
@@ -214,34 +220,39 @@ export async function saveTemplateAction(input: {
     : { ok: false, error: "Template not found." };
 }
 
-export async function sendTemplateEmailAction(input: {
-  templateId: string;
-  mailboxId: string;
-  to: string[];
-  cc: string[];
-  bcc: string[];
-  subject: string;
-}): Promise<ActionResult> {
+export async function sendTemplateEmailAction(
+  formData: FormData,
+): Promise<ActionResult> {
   if (!(await isAuthenticated())) {
     return { ok: false, error: "Your session has expired. Sign in again." };
   }
-  if (!templateIdPattern.test(input.templateId)) {
+  const templateId = readFormValue(formData, "templateId");
+  const mailboxId = readFormValue(formData, "mailboxId");
+  if (!templateIdPattern.test(templateId)) {
     return { ok: false, error: "Template ID is invalid." };
   }
+
+  const files = formData
+    .getAll("attachments")
+    .filter((entry): entry is File => typeof entry !== "string");
 
   const workspace = await getActiveWorkspace();
   if (!workspace) return { ok: false, error: "Choose a workspace first." };
 
   const [template, mailbox] = await Promise.all([
-    getTemplate(input.templateId, workspace.connection.id, workspace.domain.id),
-    getMailbox(input.mailboxId),
+    getTemplate(templateId, workspace.connection.id, workspace.domain.id),
+    getMailbox(mailboxId),
   ]);
   if (!template) return { ok: false, error: "Template not found." };
   if (!mailbox || !(await isMailboxInActiveWorkspace(mailbox))) {
     return { ok: false, error: "Choose a mailbox first." };
   }
 
-  const recipients = normalizeRecipientGroups(input);
+  const recipients = normalizeRecipientGroups({
+    to: readFormValues(formData, "to"),
+    cc: readFormValues(formData, "cc"),
+    bcc: readFormValues(formData, "bcc"),
+  });
   const allRecipients = [...recipients.to, ...recipients.cc, ...recipients.bcc];
   if (!recipients.to.length) {
     return { ok: false, error: "Add at least one recipient." };
@@ -256,8 +267,43 @@ export async function sendTemplateEmailAction(input: {
     };
   }
 
-  const subject = input.subject.trim().slice(0, MAX_SUBJECT_LENGTH);
+  const subject = readFormValue(formData, "subject")
+    .trim()
+    .slice(0, MAX_SUBJECT_LENGTH);
   if (!subject) return { ok: false, error: "Subject is required." };
+
+  if (files.length > MAX_ATTACHMENT_COUNT) {
+    return {
+      ok: false,
+      error: `You can attach up to ${MAX_ATTACHMENT_COUNT} files.`,
+    };
+  }
+  const totalAttachmentBytes = files.reduce(
+    (total, file) => total + file.size,
+    0,
+  );
+  if (totalAttachmentBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+    return { ok: false, error: "Attachments can be up to 29 MB total." };
+  }
+
+  let resendAttachments;
+  try {
+    resendAttachments = files.length
+      ? await Promise.all(
+          files.map(async (file) => ({
+            content: Buffer.from(await file.arrayBuffer()),
+            filename: safeFilename(file.name),
+            contentType: file.type || undefined,
+          })),
+        )
+      : undefined;
+  } catch (error) {
+    console.error("Unable to prepare template email attachments.", error);
+    return {
+      ok: false,
+      error: "Unable to prepare the selected attachments.",
+    };
+  }
 
   const resend = await getResendClient(mailbox.connectionId);
   const { data, error } = await resend.emails.send({
@@ -268,6 +314,7 @@ export async function sendTemplateEmailAction(input: {
     subject,
     text: template.text,
     html: template.html,
+    attachments: resendAttachments,
   });
   if (error || !data) {
     return { ok: false, error: error?.message || "Unable to send email." };
@@ -286,7 +333,17 @@ export async function sendTemplateEmailAction(input: {
       subject,
       text: template.text,
       html: template.html,
-      attachments: [],
+      attachments: files.map(
+        (file) =>
+          ({
+            id: null,
+            filename: safeFilename(file.name),
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+            disposition: "attachment",
+            contentId: null,
+          }) satisfies EmailAttachment,
+      ),
       deliveryStatus: "queued",
       deliveryUpdatedAt: sentAt,
       createdAt: sentAt,
@@ -299,6 +356,27 @@ export async function sendTemplateEmailAction(input: {
   }
 
   return { ok: true };
+}
+
+function readFormValue(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value : "";
+}
+
+function readFormValues(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string");
+}
+
+function safeFilename(filename: string) {
+  return (
+    filename
+      .split(/[\\/]/)
+      .at(-1)
+      ?.replace(/[\r\n]/g, "")
+      .trim() || "attachment"
+  );
 }
 
 export async function deleteTemplateAction(

@@ -1,6 +1,11 @@
 "use client";
 
-import { type FormEvent, type PointerEventHandler } from "react";
+import { X } from "lucide-react";
+import {
+  type FormEvent,
+  type PointerEventHandler,
+  type RefObject,
+} from "react";
 
 import { RecipientField } from "@/components/modules/mail/mail-panel/compose/recipient";
 import type { Mailbox } from "@/lib/mailbox/types";
@@ -11,6 +16,7 @@ import type { TemplateSendController } from "./use-template-send";
 
 export function SendPreview({
   controller,
+  attachmentInput,
   html,
   mailboxes,
   name,
@@ -21,6 +27,7 @@ export function SendPreview({
   subject,
 }: {
   controller: TemplateSendController;
+  attachmentInput: RefObject<HTMLInputElement | null>;
   html: string;
   mailboxes: Mailbox[];
   name: string;
@@ -115,7 +122,7 @@ export function SendPreview({
             />
           ) : null}
 
-          <label className="flex min-h-10 items-center gap-3 px-4 py-1.5">
+          <label className="flex min-h-10 items-center gap-3 border-b border-bd-40 px-4 py-1.5">
             <span className="w-12 shrink-0 text-[11px] text-fg-70">
               Subject
             </span>
@@ -129,6 +136,50 @@ export function SendPreview({
               className="min-w-0 flex-1 bg-transparent text-[12px] text-fg-40 outline-none placeholder:text-fg-70"
             />
           </label>
+          <div className="flex min-h-10 flex-wrap items-center gap-1.5 border-b border-bd-40 px-4 py-1.5">
+            <span className="w-12 shrink-0 text-[11px] text-fg-70">Docs</span>
+            <input
+              ref={attachmentInput}
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={controller.selectAttachments}
+              disabled={controller.sending}
+            />
+            {controller.attachments.length === 0 ? (
+              <span className="text-[11px] text-fg-70/60">
+                No files selected
+              </span>
+            ) : (
+              controller.attachments.map((file, index) => (
+                <span
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                  className="flex h-6 max-w-48 items-center gap-1 rounded-md bg-bk-60 px-2 text-[11px] text-fg-40"
+                >
+                  <span className="truncate" title={file.name}>
+                    {file.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => controller.removeAttachment(index)}
+                    className="-mr-1 grid size-4 shrink-0 cursor-pointer place-items-center rounded text-fg-70 transition-colors hover:bg-bk-70 hover:text-fg-30 focus-visible:ring-1 focus-visible:ring-ac-02"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X aria-hidden="true" className="size-3" />
+                  </button>
+                </span>
+              ))
+            )}
+            <button
+              type="button"
+              disabled={controller.sending}
+              onClick={() => attachmentInput.current?.click()}
+              className="ml-auto shrink-0 cursor-pointer text-[11px] text-fg-70 underline-offset-2 transition-colors hover:text-fg-30 hover:underline focus-visible:ring-1 focus-visible:ring-ac-02 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Click to add attachments"
+            >
+              Click to add attachments
+            </button>
+          </div>
           {controller.error ? (
             <p
               role="alert"

@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 
+import {
+  MAX_ATTACHMENT_COUNT,
+  MAX_TOTAL_ATTACHMENT_BYTES,
+} from "@/lib/email/types";
 import type { Mailbox } from "@/lib/mailbox/types";
 
 import { sendTemplateEmailAction } from "../actions";
@@ -26,10 +35,12 @@ export function useTemplateSend({
       bcc: [],
     },
   );
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const attachmentInput = useRef<HTMLInputElement>(null);
 
   const changeRecipients = useCallback(
     (kind: RecipientKind, values: string[]) => {
@@ -39,20 +50,81 @@ export function useTemplateSend({
     [],
   );
 
+  const selectAttachments = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(event.target.files ?? []);
+      event.target.value = "";
+
+      if (selectedFiles.length === 0) return;
+
+      setAttachments((current) => {
+        const fileKeys = new Set(
+          current.map(
+            (file) => `${file.name}:${file.size}:${file.lastModified}`,
+          ),
+        );
+        const nextAttachments = [...current];
+        let totalBytes = current.reduce((total, file) => total + file.size, 0);
+        let exceededCount = false;
+        let exceededSize = false;
+
+        for (const file of selectedFiles) {
+          const key = `${file.name}:${file.size}:${file.lastModified}`;
+          if (fileKeys.has(key)) continue;
+
+          if (nextAttachments.length >= MAX_ATTACHMENT_COUNT) {
+            exceededCount = true;
+            break;
+          }
+
+          if (totalBytes + file.size > MAX_TOTAL_ATTACHMENT_BYTES) {
+            exceededSize = true;
+            continue;
+          }
+
+          fileKeys.add(key);
+          totalBytes += file.size;
+          nextAttachments.push(file);
+        }
+
+        setError(
+          exceededCount
+            ? `You can attach up to ${MAX_ATTACHMENT_COUNT} files.`
+            : exceededSize
+              ? "Attachments can be up to 29 MB total."
+              : "",
+        );
+        return nextAttachments;
+      });
+    },
+    [],
+  );
+
+  const removeAttachment = useCallback((index: number) => {
+    setAttachments((current) =>
+      current.filter((_, attachmentIndex) => attachmentIndex !== index),
+    );
+    setError("");
+  }, []);
+
   const send = useCallback(
     async (subject: string) => {
       if (sending) return;
       setError("");
       setSending(true);
       try {
-        const result = await sendTemplateEmailAction({
-          templateId,
-          mailboxId,
-          to: recipients.to,
-          cc: recipients.cc,
-          bcc: recipients.bcc,
-          subject,
+        const formData = new FormData();
+        formData.set("templateId", templateId);
+        formData.set("mailboxId", mailboxId);
+        recipients.to.forEach((address) => formData.append("to", address));
+        recipients.cc.forEach((address) => formData.append("cc", address));
+        recipients.bcc.forEach((address) => formData.append("bcc", address));
+        formData.set("subject", subject);
+        attachments.forEach((file) => {
+          formData.append("attachments", file, file.name);
         });
+
+        const result = await sendTemplateEmailAction(formData);
         if (result.ok) {
           window.location.assign("/sent");
           return;
@@ -64,12 +136,16 @@ export function useTemplateSend({
         setSending(false);
       }
     },
-    [mailboxId, recipients, sending, templateId],
+    [attachments, mailboxId, recipients, sending, templateId],
   );
 
   return {
     mailboxId,
     recipients,
+    attachments,
+    attachmentInput,
+    selectAttachments,
+    removeAttachment,
     showCc,
     showBcc,
     sending,

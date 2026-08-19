@@ -625,6 +625,7 @@ export function TemplateEditor({
       {workspaceMode === "send" ? (
         <SendPreview
           controller={templateSend}
+          attachmentInput={templateSend.attachmentInput}
           html={sendHtml}
           mailboxes={mailboxes}
           name={name}
